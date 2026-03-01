@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>まわれ！タイムアタック</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0f0c29;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        canvas { touch-action: none; display: block; }
+
+        /* ---- 上部 UI ---- */
+        #ui {
+            position: fixed;
+            top: env(safe-area-inset-top, 12px);
+            left: 0; right: 0;
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 16px;
+            z-index: 10;
+        }
+        .ui-box {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            padding: 6px 16px;
+            text-align: center;
+            min-width: 80px;
+        }
+        .ui-label { font-size: 10px; opacity: 0.65; letter-spacing: 1px; text-transform: uppercase; }
+        .ui-value { font-size: 24px; font-weight: 800; }
+        #timer-value { color: #69f0ae; }
+        #timer-value.danger { color: #ff5252; animation: blink 0.5s infinite; }
+        @keyframes blink { 50% { opacity: 0.4; } }
+
+        /* ---- 周回ポップ ---- */
+        #lap-pop {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 56px;
+            font-weight: 900;
+            color: #ffd740;
+            text-shadow: 0 0 30px rgba(255,215,64,0.8);
+            pointer-events: none;
+            z-index: 30;
+            transition: none;
+        }
+        #lap-pop.pop {
+            animation: lapPop 0.7s ease-out forwards;
+        }
+        @keyframes lapPop {
+            0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
+            40%  { transform: translate(-50%,-60%) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%,-80%) scale(0.8); opacity: 0; }
+        }
+
+        /* ---- 進捗バー ---- */
+        #progress-bar-container {
+            position: fixed;
+            bottom: env(safe-area-inset-bottom, 16px);
+            left: 16px; right: 16px;
+            height: 10px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 5px;
+            overflow: hidden;
+            z-index: 10;
+        }
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 5px;
+            background: linear-gradient(90deg, #00c853, #69f0ae);
+            transition: width 0.05s linear;
+        }
+
+        /* ---- オーバーレイ ---- */
+        #overlay {
+            position: fixed; inset: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        #overlay.active { display: flex; }
+        #overlay-bg {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(4px);
+        }
+        #overlay-content {
+            position: relative;
+            text-align: center;
+            padding: 24px 32px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            min-width: 280px;
+        }
+        #overlay-emoji { font-size: 64px; display: block; margin-bottom: 8px; }
+        #overlay-title { font-size: 34px; font-weight: 800; margin-bottom: 6px; }
+        #overlay-sub {
+            font-size: 17px; opacity: 0.85;
+            margin-bottom: 6px;
+            white-space: pre-line;
+            line-height: 1.6;
+        }
+        #overlay-record { font-size: 14px; opacity: 0.55; margin-bottom: 24px; }
+        #startBtn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none;
+            padding: 15px 48px;
+            font-size: 20px; font-weight: 700;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 8px 32px rgba(102,126,234,0.45);
+            -webkit-tap-highlight-color: transparent;
+            letter-spacing: 1px;
+        }
+        #startBtn:active { transform: scale(0.95); }
+
+        /* ---- コンボバッジ ---- */
+        #combo-badge {
+            position: fixed;
+            top: env(safe-area-inset-top, 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 72px;
+            background: linear-gradient(135deg, #ff6f00, #ffd740);
+            color: #1a1a1a;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 4px 14px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+            z-index: 11;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #combo-badge.visible { opacity: 1; }
+
+        /* ---- ボーナスポップ ---- */
+        #bonus-pop {
+            position: fixed;
+            top: 42%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 44px;
+            font-weight: 900;
+            color: #ffd740;
+            text-shadow: 0 0 40px rgba(255,215,64,1);
+            pointer-events: none;
+            z-index: 32;
+            opacity: 0;
+        }
+        #bonus-pop.show {
+            animation: bonusAnim 0.9s ease-out forwards;
+        }
+        @keyframes bonusAnim {
+            0%   { opacity: 1; transform: translateX(-50%) scale(0.6) translateY(0); }
+            30%  { opacity: 1; transform: translateX(-50%) scale(1.3) translateY(-10px); }
+            100% { opacity: 0; transform: translateX(-50%) scale(1)   translateY(-60px); }
+        }
+
+        /* ---- ペナルティ表示 ---- */
+        #penalty-pop {
+            position: fixed;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: 900;
+            color: #ff5252;
+            pointer-events: none;
+            z-index: 30;
+            opacity: 0;
+        }
+        #penalty-pop.show {
+            animation: penaltyAnim 1s ease-out forwards;
+        }
+        @keyframes penaltyAnim {
+            0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div class="ui-box">
+        <div class="ui-label">残り時間</div>
+        <div class="ui-value" id="timer-value">30.0</div>
+    </div>
+    <div class="ui-box">
+        <div class="ui-label">周回数</div>
+        <div class="ui-value" id="lap-value">0</div>
+    </div>
+    <div class="ui-box">
+        <div class="ui-label">ベスト</div>
+        <div class="ui-value" id="best-value">0</div>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="progress-bar-container">
+    <div id="progress-bar"></div>
+</div>
+
+<div id="lap-pop">+1周!</div>
+<div id="bonus-pop">🔥 BONUS +1!</div>
+<div id="combo-badge">🔥 1連続</div>
+<div id="penalty-pop">-3秒</div>
+
+<div id="overlay" class="active">
+    <div id="overlay-bg"></div>
+    <div id="overlay-content">
+        <span id="overlay-emoji">🎯</span>
+        <div id="overlay-title">まわれ！</div>
+        <div id="overlay-sub">30秒以内に何周できるか挑戦！\n乳首に触れると-3秒ペナルティ</div>
+        <div id="overlay-record"></div>
+        <button id="startBtn">スタート</button>
+    </div>
+</div>
+
+<script>
+const canvas    = document.getElementById('gameCanvas');
+const ctx       = canvas.getContext('2d');
+const overlay   = document.getElementById('overlay');
+const overlayEmoji  = document.getElementById('overlay-emoji');
+const overlayTitle  = document.getElementById('overlay-title');
+const overlaySub    = document.getElementById('overlay-sub');
+const overlayRecord = document.getElementById('overlay-record');
+const startBtn      = document.getElementById('startBtn');
+const progressBar   = document.getElementById('progress-bar');
+const timerEl       = document.getElementById('timer-value');
+const lapEl         = document.getElementById('lap-value');
+const bestEl        = document.getElementById('best-value');
+const lapPop        = document.getElementById('lap-pop');
+const bonusPop      = document.getElementById('bonus-pop');
+const comboBadge    = document.getElementById('combo-badge');
+const penaltyPop    = document.getElementById('penalty-pop');
+
+// ---- リサイズ ----
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// ---- 定数 ----
+const NIPPLE_R    = 28;
+const AREOLA_R    = 72;
+const TRACK_MIN   = NIPPLE_R + 12;
+const START_ANGLE = -Math.PI / 2;
+const TIME_LIMIT  = 30.0;   // 秒
+const PENALTY_SEC = 3.0;    // 乳首タッチのペナルティ
+
+// ---- 状態 ----
+let state       = 'idle';   // idle | playing | result
+let timeLeft    = TIME_LIMIT;
+let lapCount    = 0;
+let bestLaps    = 0;
+let totalAngle  = 0;
+let lastAngle   = null;
+let touching    = false;
+let path        = [];
+let animFrame   = 0;
+let flashAlpha  = 0;
+let flashColor  = '#fff';
+let particles   = [];
+let lastTick        = 0;
+let penaltyCooldown = 0;  // 連続ペナルティ防止フレーム
+let consecutiveLaps = 0;  // ペナルティなしの連続周回数
+let bonusCount      = 0;  // ボーナスで加算したポイント合計
+const COMBO_BONUS   = 3;  // 何連続でボーナス発生するか
+let bonusCharTimer  = 0;  // キャラ表示カウンタ（130→0）
+
+// ---- スタート ----
+startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, { passive: false });
+
+function startGame() {
+    state       = 'playing';
+    timeLeft    = TIME_LIMIT;
+    lapCount    = 0;
+    totalAngle  = 0;
+    lastAngle   = null;
+    touching    = false;
+    path        = [];
+    flashAlpha  = 0;
+    particles   = [];
+    penaltyCooldown = 0;
+    consecutiveLaps = 0;
+    bonusCount      = 0;
+    bonusCharTimer  = 0;
+    lastTick    = performance.now();
+    lapEl.textContent    = '0';
+    comboBadge.classList.remove('visible');
+    timerEl.textContent  = TIME_LIMIT.toFixed(1);
+    timerEl.classList.remove('danger');
+    progressBar.style.width = '0%';
+    progressBar.style.background = 'linear-gradient(90deg,#00c853,#69f0ae)';
+    overlay.classList.remove('active');
+}
+
+function showResult() {
+    state = 'result';
+    const totalScore = lapCount + bonusCount;
+    const isNew = totalScore > bestLaps;
+    if (isNew) bestLaps = totalScore;
+    bestEl.textContent = bestLaps;
+
+    overlayEmoji.textContent = totalScore >= 6 ? '🏆' : totalScore >= 3 ? '🎉' : '😅';
+    overlayTitle.textContent = `${totalScore}ポイント！`;
+    const bonusLine = bonusCount > 0 ? `\n🔥 3連続ボーナス: +${bonusCount}pt` : '';
+    overlaySub.textContent = `周回: ${lapCount}周${bonusLine}`;
+    overlayRecord.textContent = isNew ? '🌟 新記録達成！' : `ベスト: ${bestLaps}pt`;
+    startBtn.textContent = 'もう一度';
+    overlay.classList.add('active');
+}
+
+// ---- タッチ / マウス ----
+function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    if (e.touches && e.touches.length > 0)
+        return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+canvas.addEventListener('touchstart',  e => { e.preventDefault(); if (state==='playing'){ touching=true; processInput(getPos(e)); } }, { passive: false });
+canvas.addEventListener('touchmove',   e => { e.preventDefault(); if (state==='playing' && touching) processInput(getPos(e)); }, { passive: false });
+canvas.addEventListener('touchend',    e => { e.preventDefault(); touching=false; if (state==='playing') resetCurrentLap(); }, { passive: false });
+canvas.addEventListener('mousedown',   e => { if (state==='playing'){ touching=true; processInput(getPos(e)); } });
+canvas.addEventListener('mousemove',   e => { if (state==='playing' && (e.buttons&1)) processInput(getPos(e)); });
+canvas.addEventListener('mouseup',     ()  => { touching=false; if (state==='playing') resetCurrentLap(); });
+
+function resetCurrentLap() {
+    // 指を離したら現在の周回進捗リセット（完了済みのlapCountは保持）
+    const completedAngle = lapCount * Math.PI * 2;
+    totalAngle = completedAngle;
+    lastAngle  = null;
+    path       = [];
+    progressBar.style.width = '0%';
+}
+
+function processInput(pos) {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const dx = pos.x - cx, dy = pos.y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    // 乳首ヒット
+    if (dist <= TRACK_MIN) {
+        if (penaltyCooldown <= 0) {
+            timeLeft = Math.max(0, timeLeft - PENALTY_SEC);
+            flashColor = '#ff4444';
+            flashAlpha = 1;
+            penaltyCooldown = 40;
+            // 連続カウントをリセット
+            consecutiveLaps = 0;
+            comboBadge.classList.remove('visible');
+            showPenaltyPop();
+            resetCurrentLap();
+        }
+        return;
+    }
+
+    path.push({ x: pos.x, y: pos.y });
+
+    // 角度追跡
+    const angle = Math.atan2(dy, dx);
+    if (lastAngle !== null) {
+        let delta = angle - lastAngle;
+        if (delta >  Math.PI) delta -= Math.PI * 2;
+        if (delta < -Math.PI) delta += Math.PI * 2;
+        totalAngle += delta;
+    }
+    lastAngle = angle;
+
+    // 周回カウント
+    const newLapCount = Math.floor(Math.abs(totalAngle) / (Math.PI * 2));
+    if (newLapCount > lapCount) {
+        lapCount = newLapCount;
+        consecutiveLaps++;
+
+        // 3連続クリアでボーナス +1
+        if (consecutiveLaps % COMBO_BONUS === 0) {
+            bonusCount++;
+            showBonusPop();
+        }
+
+        // コンボバッジ更新
+        comboBadge.textContent = `🔥 ${consecutiveLaps}連続`;
+        comboBadge.classList.add('visible');
+
+        lapEl.textContent = lapCount + bonusCount;
+        flashColor = '#00e676';
+        flashAlpha = 0.7;
+        spawnParticles();
+        showLapPop();
+        path = [];  // 軌跡をリセットして次周へ
+    }
+
+    // 現在周回内の進捗
+    const withinLap = Math.abs(totalAngle) - lapCount * Math.PI * 2;
+    const pct = Math.min(withinLap / (Math.PI * 2) * 100, 100);
+    progressBar.style.width = pct + '%';
+}
+
+function showLapPop() {
+    lapPop.textContent = `+1周!`;
+    lapPop.classList.remove('pop');
+    void lapPop.offsetWidth;
+    lapPop.classList.add('pop');
+}
+
+function showBonusPop() {
+    bonusPop.classList.remove('show');
+    void bonusPop.offsetWidth;
+    bonusPop.classList.add('show');
+    bonusCharTimer = 130;  // キャラアニメ開始
+}
+
+function showPenaltyPop() {
+    penaltyPop.classList.remove('show');
+    void penaltyPop.offsetWidth;
+    penaltyPop.classList.add('show');
+}
+
+// ---- タイマー更新 ----
+function updateTimer(now) {
+    if (state !== 'playing') return;
+    const dt = (now - lastTick) / 1000;
+    lastTick = now;
+    if (penaltyCooldown > 0) penaltyCooldown--;
+
+    timeLeft = Math.max(0, timeLeft - dt);
+    timerEl.textContent = timeLeft.toFixed(1);
+
+    if (timeLeft <= 5) timerEl.classList.add('danger');
+
+    if (timeLeft <= 0) {
+        spawnParticles();
+        setTimeout(showResult, 400);
+        state = 'result_pending';
+    }
+}
+
+// ---- パーティクル ----
+function spawnParticles() {
+    const cx = canvas.width/2, cy = canvas.height/2;
+    for (let i = 0; i < 30; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 2 + Math.random() * 5;
+        particles.push({
+            x: cx, y: cy,
+            vx: Math.cos(a)*s, vy: Math.sin(a)*s - 1,
+            life: 1, decay: 0.025 + Math.random()*0.02,
+            size: 3 + Math.random()*5,
+            color: `hsl(${Math.random()*360},100%,65%)`
+        });
+    }
+}
+function updateParticles() {
+    for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.18;
+        p.life -= p.decay;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+function drawParticles() {
+    for (const p of particles) {
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
+// ---- かわいいキャラクター描画 ----
+function drawStar(x, y, pts, ro, ri) {
+    ctx.beginPath();
+    for (let i = 0; i < pts * 2; i++) {
+        const r = i % 2 === 0 ? ro : ri;
+        const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+        i === 0 ? ctx.moveTo(x + Math.cos(a)*r, y + Math.sin(a)*r)
+                : ctx.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r);
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawStarEye(x, y, r) {
+    // 白目
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 星型の瞳
+    ctx.fillStyle = '#334ecc';
+    drawStar(x, y, 5, r * 0.72, r * 0.36);
+    // キラッとハイライト
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.28, y - r * 0.28, r * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + r * 0.2, y - r * 0.1, r * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawBonusChar(cx, cy) {
+    if (bonusCharTimer <= 0) return;
+    bonusCharTimer--;
+
+    const elapsed = 130 - bonusCharTimer;
+    const t       = bonusCharTimer;
+
+    // --- スケール・透明度アニメーション ---
+    let scale = 1, alpha = 1;
+    if (elapsed < 18) {
+        const p = elapsed / 18;
+        scale = p < 0.65 ? (p / 0.65) * 1.3 : 1.3 - ((p - 0.65) / 0.35) * 0.3;
+    } else if (t < 22) {
+        alpha = t / 22;
+        scale = alpha;
+    }
+    const bob = Math.sin(elapsed * 0.18) * 5;
+
+    // --- 表示位置：画面右寄り、はみ出ないよう調整 ---
+    const HR  = 26;   // 頭の半径
+    const charX = Math.min(cx + 145, canvas.width - HR * 3 - 10);
+    const charY = cy + bob;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(charX, charY);
+    ctx.scale(scale, scale);
+
+    // ===== 吹き出し =====
+    ctx.fillStyle = '#fffde7';
+    ctx.strokeStyle = '#ffd740';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-52, -HR - 52, 104, 34, 8);
+    ctx.fill();
+    ctx.stroke();
+    // 吹き出し三角
+    ctx.fillStyle = '#fffde7';
+    ctx.beginPath();
+    ctx.moveTo(-7, -HR - 18); ctx.lineTo(7, -HR - 18); ctx.lineTo(0, -HR - 7);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#ffd740'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-7, -HR - 18); ctx.lineTo(0, -HR - 7); ctx.lineTo(7, -HR - 18);
+    ctx.stroke();
+    // 吹き出しテキスト
+    ctx.fillStyle = '#e65100';
+    ctx.font = 'bold 13px -apple-system';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🔥 BONUS! +1', 0, -HR - 35);
+
+    // ===== 猫耳（左）=====
+    ctx.fillStyle = '#ffb3c6';
+    ctx.beginPath();
+    ctx.moveTo(-HR + 3, -HR + 6);
+    ctx.lineTo(-HR - 10, -HR - 22);
+    ctx.lineTo(-HR + 16, -HR - 6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff6b8a';
+    ctx.beginPath();
+    ctx.moveTo(-HR + 5, -HR + 2);
+    ctx.lineTo(-HR - 4, -HR - 14);
+    ctx.lineTo(-HR + 11, -HR - 3);
+    ctx.closePath(); ctx.fill();
+
+    // ===== 猫耳（右）=====
+    ctx.fillStyle = '#ffb3c6';
+    ctx.beginPath();
+    ctx.moveTo(HR - 3, -HR + 6);
+    ctx.lineTo(HR + 10, -HR - 22);
+    ctx.lineTo(HR - 16, -HR - 6);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ff6b8a';
+    ctx.beginPath();
+    ctx.moveTo(HR - 5, -HR + 2);
+    ctx.lineTo(HR + 4, -HR - 14);
+    ctx.lineTo(HR - 11, -HR - 3);
+    ctx.closePath(); ctx.fill();
+
+    // ===== 顔 =====
+    const faceG = ctx.createRadialGradient(-4, -6, 2, 0, 0, HR);
+    faceG.addColorStop(0, '#fff8f4');
+    faceG.addColorStop(1, '#ffd5c8');
+    ctx.beginPath();
+    ctx.arc(0, 0, HR, 0, Math.PI * 2);
+    ctx.fillStyle = faceG;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200,100,80,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ===== 髪 =====
+    ctx.fillStyle = '#3d1f00';
+    // 上の髪
+    ctx.beginPath();
+    ctx.arc(0, -HR * 0.15, HR * 1.04, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.fill();
+    // 前髪
+    ctx.beginPath();
+    ctx.ellipse(-10, -HR * 0.82, 9, 7, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(8, -HR * 0.88, 8, 6, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(-1, -HR * 0.94, 7, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 髪のツヤ
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath();
+    ctx.ellipse(-7, -HR * 0.7, 7, 3.5, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // ===== 目 =====
+    drawStarEye(-10, 1, 7);
+    drawStarEye(10, 1, 7);
+
+    // ===== ほっぺ =====
+    ctx.globalAlpha = alpha * 0.45;
+    ctx.fillStyle = '#ff7096';
+    ctx.beginPath();
+    ctx.ellipse(-16, 10, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(16, 10, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+
+    // ===== 口（満面の笑み）=====
+    ctx.strokeStyle = '#c04050';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 13, 9, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+    // 舌
+    ctx.fillStyle = '#ff8090';
+    ctx.beginPath();
+    ctx.arc(0, 20, 5, 0, Math.PI);
+    ctx.fill();
+    // 歯
+    ctx.fillStyle = 'white';
+    ctx.fillRect(-8, 13, 16, 5);
+
+    // ===== 体（ワンピース）=====
+    ctx.fillStyle = '#ff7eb3';
+    ctx.beginPath();
+    ctx.roundRect(-15, HR - 2, 30, 26, [4, 4, 8, 8]);
+    ctx.fill();
+    // 胸の白いリボン
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath();
+    ctx.moveTo(-5, HR + 2); ctx.lineTo(5, HR + 2);
+    ctx.lineTo(3, HR + 9); ctx.lineTo(-3, HR + 9);
+    ctx.closePath(); ctx.fill();
+
+    // ===== 腕（万歳！）=====
+    ctx.strokeStyle = '#ffd5c8';
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-13, HR + 4);
+    ctx.quadraticCurveTo(-32, HR - 6, -28, HR - 20);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(13, HR + 4);
+    ctx.quadraticCurveTo(32, HR - 6, 28, HR - 20);
+    ctx.stroke();
+    // 手
+    ctx.fillStyle = '#ffd5c8';
+    ctx.beginPath(); ctx.arc(-28, HR - 22, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(28, HR - 22, 6, 0, Math.PI * 2); ctx.fill();
+
+    // ===== 周囲の絵文字（ハート・星）=====
+    const emojis = ['💕', '⭐', '✨', '💖', '🌟', '💫'];
+    emojis.forEach((em, i) => {
+        const angle = (i / emojis.length) * Math.PI * 2 + elapsed * 0.025;
+        const rx = 68 + Math.sin(elapsed * 0.08 + i) * 8;
+        const ry = 52;
+        const ex = Math.cos(angle) * rx;
+        const ey = Math.sin(angle) * ry - 10;
+        ctx.globalAlpha = alpha * (0.7 + Math.sin(elapsed * 0.12 + i * 1.3) * 0.3);
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(em, ex, ey);
+    });
+    ctx.globalAlpha = alpha;
+
+    ctx.restore();
+}
+
+// ---- タイマーリング（キャンバス上の大きな円形タイマー）----
+function drawTimerRing(cx, cy) {
+    if (state !== 'playing' && state !== 'result_pending') return;
+    const r = AREOLA_R + 55;
+    const pct = timeLeft / TIME_LIMIT;
+    const startA = -Math.PI / 2;
+    const endA   = startA + pct * Math.PI * 2;
+
+    // 背景リング
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    // 残り時間リング
+    const hue = pct > 0.3 ? 140 : pct > 0.15 ? 40 : 0;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startA, endA);
+    ctx.strokeStyle = `hsl(${hue},100%,60%)`;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+}
+
+// ---- メイン描画 ----
+function drawScene(now) {
+    const cx = canvas.width/2, cy = canvas.height/2;
+    animFrame++;
+
+    updateTimer(now);
+
+    // 背景
+    ctx.fillStyle = '#0f0c29';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // フラッシュ
+    if (flashAlpha > 0) {
+        ctx.fillStyle = flashColor;
+        ctx.globalAlpha = flashAlpha * 0.3;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1;
+        flashAlpha = Math.max(0, flashAlpha - 0.05);
+    }
+
+    // タイマーリング
+    drawTimerRing(cx, cy);
+
+    // 乳輪
+    const g1 = ctx.createRadialGradient(cx-8, cy-8, 5, cx, cy, AREOLA_R);
+    g1.addColorStop(0, '#c8855a');
+    g1.addColorStop(0.6, '#a66040');
+    g1.addColorStop(1, '#7a4020');
+    ctx.beginPath();
+    ctx.arc(cx, cy, AREOLA_R, 0, Math.PI*2);
+    ctx.fillStyle = g1;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60,20,0,0.6)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // 乳首
+    const pulse = Math.sin(animFrame * 0.06) * 2;
+    const gN = ctx.createRadialGradient(cx-6, cy-6, 2, cx, cy, NIPPLE_R+pulse);
+    gN.addColorStop(0, '#f0a888');
+    gN.addColorStop(0.4, '#cc6040');
+    gN.addColorStop(1, '#8b2a10');
+    ctx.beginPath();
+    ctx.arc(cx, cy, NIPPLE_R+pulse, 0, Math.PI*2);
+    ctx.fillStyle = gN;
+    ctx.fill();
+
+    // ハイライト
+    ctx.beginPath();
+    ctx.arc(cx-7, cy-7, 8, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,200,160,0.2)';
+    ctx.fill();
+
+    // NG ゾーン
+    ctx.beginPath();
+    ctx.arc(cx, cy, TRACK_MIN, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,60,60,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 周回数を中央に薄く表示
+    if (state === 'playing' || state === 'result_pending') {
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.font = `bold ${AREOLA_R}px -apple-system`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lapCount, cx, cy);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // 軌跡
+    if (path.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+        ctx.strokeStyle = 'rgba(120,200,255,0.75)';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        const last = path[path.length-1];
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 9, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(120,200,255,0.9)';
+        ctx.fill();
+    }
+
+    // パーティクル
+    updateParticles();
+    drawParticles();
+
+    // ボーナスキャラクター
+    drawBonusChar(cx, cy);
+
+    // アイドル時の説明
+    if (state === 'idle') {
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.font = '16px -apple-system';
+        ctx.textAlign = 'center';
+        ctx.fillText('乳首に触れずに何周回れるか挑戦！', cx, cy - AREOLA_R - 75);
+        ctx.fillText('タッチすると -3秒ペナルティ', cx, cy - AREOLA_R - 50);
+    }
+}
+
+function loop(now) {
+    drawScene(now);
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
