@@ -5,857 +5,1422 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>まわれ！タイムアタック</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            background: #0f0c29;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: -apple-system, 'Helvetica Neue', sans-serif;
-            color: white;
-            user-select: none;
-            -webkit-user-select: none;
+            background:#0f0c29;
+            height:100vh; overflow:hidden;
+            font-family:-apple-system,'Helvetica Neue',sans-serif;
+            color:white; user-select:none; -webkit-user-select:none;
         }
 
-        canvas { touch-action: none; display: block; }
+        /* ===== SCREEN SYSTEM ===== */
+        .screen {
+            position:fixed; inset:0;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            opacity:0; pointer-events:none;
+            transition:opacity 0.25s ease;
+            overflow-y:auto;
+        }
+        .screen.active { opacity:1; pointer-events:all; }
+        .screen-inner {
+            width:100%; max-width:400px;
+            padding:16px 20px calc(env(safe-area-inset-bottom,16px) + 16px);
+            padding-top:calc(env(safe-area-inset-top,20px) + 8px);
+        }
+        .screen-header {
+            display:flex; align-items:center; gap:12px;
+            margin-bottom:20px;
+        }
+        .screen-header h2 { font-size:22px; font-weight:800; }
+        .btn-back {
+            background:rgba(255,255,255,0.12); border:none; color:white;
+            width:36px; height:36px; border-radius:50%; font-size:18px;
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            -webkit-tap-highlight-color:transparent; flex-shrink:0;
+        }
+        .btn-back:active { transform:scale(0.92); }
 
-        /* ---- 上部 UI ---- */
+        /* ===== HOME SCREEN ===== */
+        #screen-home .screen-inner {
+            display:flex; flex-direction:column; align-items:center; gap:20px;
+        }
+        .home-top-row {
+            width:100%; display:flex; justify-content:space-between; align-items:center;
+        }
+        .level-chip {
+            background:linear-gradient(135deg,#667eea,#764ba2);
+            padding:6px 14px; border-radius:20px;
+            font-size:13px; font-weight:800; letter-spacing:1px;
+        }
+        .streak-chip {
+            background:rgba(255,111,0,0.25); border:1px solid rgba(255,111,0,0.5);
+            padding:6px 14px; border-radius:20px;
+            font-size:13px; font-weight:700;
+        }
+        .home-logo { text-align:center; }
+        .home-title-emoji { font-size:72px; line-height:1; margin-bottom:4px; }
+        .home-title { font-size:38px; font-weight:900; letter-spacing:2px; }
+        .home-subtitle { font-size:14px; opacity:0.55; letter-spacing:3px; margin-top:2px; }
+        .xp-section { width:100%; }
+        .xp-label { font-size:11px; opacity:0.6; text-align:right; margin-bottom:4px; }
+        .xp-bar-bg {
+            height:8px; background:rgba(255,255,255,0.12); border-radius:4px; overflow:hidden;
+        }
+        .xp-bar-fill {
+            height:100%; border-radius:4px;
+            background:linear-gradient(90deg,#667eea,#f093fb);
+            transition:width 0.4s ease;
+        }
+        .home-buttons { width:100%; display:flex; flex-direction:column; gap:10px; }
+        .btn-primary {
+            width:100%; padding:18px; border:none; border-radius:50px;
+            background:linear-gradient(135deg,#667eea,#764ba2);
+            color:white; font-size:20px; font-weight:800; cursor:pointer;
+            box-shadow:0 8px 32px rgba(102,126,234,0.45);
+            -webkit-tap-highlight-color:transparent; letter-spacing:1px;
+        }
+        .btn-primary:active { transform:scale(0.97); }
+        .btn-daily {
+            width:100%; padding:14px; border:2px solid rgba(255,193,7,0.6); border-radius:50px;
+            background:rgba(255,193,7,0.1); color:#ffc107;
+            font-size:16px; font-weight:700; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
+        }
+        .btn-daily:active { transform:scale(0.97); background:rgba(255,193,7,0.2); }
+        .btn-daily.completed { opacity:0.5; }
+        .home-btns-row { display:flex; gap:10px; }
+        .btn-secondary {
+            flex:1; padding:12px; border:1px solid rgba(255,255,255,0.2); border-radius:20px;
+            background:rgba(255,255,255,0.07); color:white;
+            font-size:14px; font-weight:600; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
+        }
+        .btn-secondary:active { background:rgba(255,255,255,0.15); }
+        .sound-btn {
+            background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+            color:white; padding:8px 16px; border-radius:20px;
+            font-size:13px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+        }
+
+        /* ===== DIFFICULTY SCREEN ===== */
+        .diff-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+        .diff-card {
+            border-radius:16px; padding:16px 12px; text-align:center; cursor:pointer;
+            border:2px solid transparent; transition:transform 0.15s, border-color 0.15s;
+            -webkit-tap-highlight-color:transparent;
+        }
+        .diff-card:active { transform:scale(0.95); }
+        .diff-card.easy   { background:rgba(0,230,118,0.1); border-color:rgba(0,230,118,0.3); }
+        .diff-card.normal { background:rgba(255,215,64,0.1); border-color:rgba(255,215,64,0.3); }
+        .diff-card.hard   { background:rgba(255,109,0,0.1); border-color:rgba(255,109,0,0.3); }
+        .diff-card.extreme{ background:rgba(255,23,68,0.1);  border-color:rgba(255,23,68,0.3); }
+        .diff-icon { font-size:36px; margin-bottom:6px; }
+        .diff-name { font-size:15px; font-weight:900; letter-spacing:1px; margin-bottom:4px; }
+        .diff-card.easy   .diff-name { color:#00e676; }
+        .diff-card.normal .diff-name { color:#ffd740; }
+        .diff-card.hard   .diff-name { color:#ff6d00; }
+        .diff-card.extreme .diff-name { color:#ff1744; }
+        .diff-desc { font-size:11px; opacity:0.7; line-height:1.6; margin-bottom:6px; }
+        .diff-xp { font-size:11px; font-weight:700; opacity:0.9; }
+        .diff-card.easy   .diff-xp { color:#00e676; }
+        .diff-card.normal .diff-xp { color:#ffd740; }
+        .diff-card.hard   .diff-xp { color:#ff6d00; }
+        .diff-card.extreme .diff-xp { color:#ff1744; }
+        .diff-bests { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .diff-best-item {
+            background:rgba(255,255,255,0.06); border-radius:10px; padding:8px;
+            text-align:center; font-size:12px;
+        }
+        .diff-best-label { opacity:0.5; font-size:10px; margin-bottom:2px; }
+        .diff-best-val { font-weight:800; font-size:16px; }
+
+        /* ===== DAILY CHALLENGE SCREEN ===== */
+        .daily-card {
+            background:rgba(255,193,7,0.08); border:2px solid rgba(255,193,7,0.3);
+            border-radius:20px; padding:20px; text-align:center; margin-bottom:20px;
+        }
+        .daily-icon { font-size:48px; margin-bottom:8px; }
+        .daily-name { font-size:20px; font-weight:800; color:#ffc107; margin-bottom:6px; }
+        .daily-desc { font-size:14px; opacity:0.75; line-height:1.6; margin-bottom:4px; }
+        .daily-bonus { font-size:12px; color:#ffd740; font-weight:600; margin-top:6px; }
+        .daily-done-badge {
+            background:rgba(0,230,118,0.2); border:1px solid rgba(0,230,118,0.4);
+            color:#00e676; padding:6px 16px; border-radius:20px; font-size:12px;
+            font-weight:700; display:inline-block; margin-bottom:12px;
+        }
+
+        /* ===== GAME SCREEN ===== */
+        #screen-game { background:#0f0c29; justify-content:flex-start; align-items:stretch; }
+        canvas { touch-action:none; display:block; }
         #ui {
-            position: fixed;
-            top: env(safe-area-inset-top, 12px);
-            left: 0; right: 0;
-            display: flex;
-            justify-content: space-around;
-            padding: 8px 16px;
-            z-index: 10;
+            position:fixed; top:env(safe-area-inset-top,12px);
+            left:0; right:0;
+            display:flex; justify-content:space-around;
+            padding:8px 16px; z-index:10;
         }
         .ui-box {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 12px;
-            padding: 6px 16px;
-            text-align: center;
-            min-width: 80px;
+            background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+            border-radius:12px; padding:6px 16px; text-align:center; min-width:80px;
         }
-        .ui-label { font-size: 10px; opacity: 0.65; letter-spacing: 1px; text-transform: uppercase; }
-        .ui-value { font-size: 24px; font-weight: 800; }
-        #timer-value { color: #69f0ae; }
-        #timer-value.danger { color: #ff5252; animation: blink 0.5s infinite; }
-        @keyframes blink { 50% { opacity: 0.4; } }
+        .ui-label { font-size:10px; opacity:0.65; letter-spacing:1px; text-transform:uppercase; }
+        .ui-value { font-size:24px; font-weight:800; }
+        #timer-value { color:#69f0ae; }
+        #timer-value.danger { color:#ff5252; animation:blink 0.5s infinite; }
+        @keyframes blink { 50%{opacity:0.4;} }
+        .diff-badge-ingame {
+            position:fixed; top:env(safe-area-inset-top,12px); right:16px;
+            margin-top:80px; font-size:10px; font-weight:800;
+            padding:3px 10px; border-radius:20px; z-index:11;
+        }
 
-        /* ---- 周回ポップ ---- */
+        /* popups */
         #lap-pop {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0);
-            font-size: 56px;
-            font-weight: 900;
-            color: #ffd740;
-            text-shadow: 0 0 30px rgba(255,215,64,0.8);
-            pointer-events: none;
-            z-index: 30;
-            transition: none;
+            position:fixed; top:50%; left:50%;
+            transform:translate(-50%,-50%) scale(0);
+            font-size:56px; font-weight:900; color:#ffd740;
+            text-shadow:0 0 30px rgba(255,215,64,0.8);
+            pointer-events:none; z-index:30;
         }
-        #lap-pop.pop {
-            animation: lapPop 0.7s ease-out forwards;
-        }
+        #lap-pop.pop { animation:lapPop 0.7s ease-out forwards; }
         @keyframes lapPop {
-            0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 1; }
-            40%  { transform: translate(-50%,-60%) scale(1.2); opacity: 1; }
-            100% { transform: translate(-50%,-80%) scale(0.8); opacity: 0; }
+            0%  {transform:translate(-50%,-50%) scale(0.5);opacity:1;}
+            40% {transform:translate(-50%,-60%) scale(1.2);opacity:1;}
+            100%{transform:translate(-50%,-80%) scale(0.8);opacity:0;}
         }
-
-        /* ---- 進捗バー ---- */
+        #bonus-pop {
+            position:fixed; top:42%; left:50%; transform:translateX(-50%);
+            font-size:44px; font-weight:900; color:#ffd740;
+            text-shadow:0 0 40px rgba(255,215,64,1);
+            pointer-events:none; z-index:32; opacity:0;
+        }
+        #bonus-pop.show { animation:bonusAnim 0.9s ease-out forwards; }
+        @keyframes bonusAnim {
+            0%  {opacity:1;transform:translateX(-50%) scale(0.6) translateY(0);}
+            30% {opacity:1;transform:translateX(-50%) scale(1.3) translateY(-10px);}
+            100%{opacity:0;transform:translateX(-50%) scale(1)   translateY(-60px);}
+        }
+        #penalty-pop {
+            position:fixed; top:30%; left:50%; transform:translateX(-50%);
+            font-size:32px; font-weight:900; color:#ff5252;
+            pointer-events:none; z-index:30; opacity:0;
+        }
+        #penalty-pop.show { animation:penaltyAnim 1s ease-out forwards; }
+        @keyframes penaltyAnim {
+            0%  {opacity:1;transform:translateX(-50%) translateY(0);}
+            100%{opacity:0;transform:translateX(-50%) translateY(-40px);}
+        }
+        #levelup-pop {
+            position:fixed; top:25%; left:50%; transform:translateX(-50%);
+            font-size:26px; font-weight:900;
+            background:linear-gradient(135deg,#667eea,#f093fb);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+            pointer-events:none; z-index:33; opacity:0; white-space:nowrap;
+        }
+        #levelup-pop.show { animation:levelupAnim 1.5s ease-out forwards; }
+        @keyframes levelupAnim {
+            0%  {opacity:0;transform:translateX(-50%) scale(0.5);}
+            15% {opacity:1;transform:translateX(-50%) scale(1.1);}
+            70% {opacity:1;transform:translateX(-50%) scale(1.0);}
+            100%{opacity:0;transform:translateX(-50%) scale(0.9);}
+        }
+        #combo-badge {
+            position:fixed; top:env(safe-area-inset-top,12px); left:50%;
+            transform:translateX(-50%); margin-top:72px;
+            background:linear-gradient(135deg,#ff6f00,#ffd740);
+            color:#1a1a1a; font-size:13px; font-weight:800;
+            padding:4px 14px; border-radius:20px; letter-spacing:1px;
+            z-index:11; opacity:0; transition:opacity 0.2s; pointer-events:none; white-space:nowrap;
+        }
+        #combo-badge.visible { opacity:1; }
+        #achievement-toast {
+            position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+            background:rgba(30,30,60,0.95); border:1px solid rgba(255,215,64,0.5);
+            border-radius:14px; padding:10px 18px;
+            display:flex; align-items:center; gap:10px;
+            font-size:13px; font-weight:700; z-index:40;
+            opacity:0; pointer-events:none; white-space:nowrap;
+        }
+        #achievement-toast.show { animation:toastAnim 2.5s ease-out forwards; }
+        @keyframes toastAnim {
+            0%  {opacity:0;transform:translateX(-50%) translateY(20px);}
+            10% {opacity:1;transform:translateX(-50%) translateY(0);}
+            80% {opacity:1;transform:translateX(-50%) translateY(0);}
+            100%{opacity:0;transform:translateX(-50%) translateY(-10px);}
+        }
         #progress-bar-container {
-            position: fixed;
-            bottom: env(safe-area-inset-bottom, 16px);
-            left: 16px; right: 16px;
-            height: 10px;
-            background: rgba(255,255,255,0.12);
-            border-radius: 5px;
-            overflow: hidden;
-            z-index: 10;
+            position:fixed; bottom:calc(env(safe-area-inset-bottom,16px) + 48px);
+            left:16px; right:16px; height:10px;
+            background:rgba(255,255,255,0.12); border-radius:5px; overflow:hidden; z-index:10;
         }
         #progress-bar {
-            height: 100%;
-            width: 0%;
-            border-radius: 5px;
-            background: linear-gradient(90deg, #00c853, #69f0ae);
-            transition: width 0.05s linear;
+            height:100%; width:0%; border-radius:5px;
+            background:linear-gradient(90deg,#00c853,#69f0ae); transition:width 0.05s linear;
         }
+        #ad-reward-btn {
+            position:fixed; bottom:calc(env(safe-area-inset-bottom,16px) + 62px);
+            left:50%; transform:translateX(-50%);
+            background:linear-gradient(135deg,#ff6f00,#ffd740);
+            color:#1a1a1a; border:none; border-radius:30px;
+            padding:10px 24px; font-size:14px; font-weight:800;
+            cursor:pointer; z-index:15; -webkit-tap-highlight-color:transparent;
+            box-shadow:0 4px 20px rgba(255,111,0,0.4); white-space:nowrap;
+        }
+        #ad-reward-btn:active { transform:translateX(-50%) scale(0.95); }
 
-        /* ---- オーバーレイ ---- */
-        #overlay {
-            position: fixed; inset: 0;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
+        /* ===== RESULT SCREEN ===== */
+        #screen-result .screen-inner { text-align:center; display:flex; flex-direction:column; align-items:center; gap:14px; }
+        #result-emoji { font-size:72px; line-height:1; }
+        #result-title { font-size:38px; font-weight:900; }
+        #result-breakdown {
+            background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
+            border-radius:16px; padding:14px 20px; font-size:15px; line-height:2; width:100%;
         }
-        #overlay.active { display: flex; }
-        #overlay-bg {
-            position: absolute; inset: 0;
-            background: rgba(0,0,0,0.75);
-            backdrop-filter: blur(4px);
+        .result-xp-section { width:100%; }
+        .result-xp-label { font-size:14px; font-weight:700; color:#f093fb; margin-bottom:6px; text-align:center; }
+        #result-level-label { font-size:12px; opacity:0.6; text-align:center; margin-top:4px; }
+        #result-achievement {
+            background:rgba(255,215,64,0.1); border:1px solid rgba(255,215,64,0.4);
+            border-radius:14px; padding:10px 16px;
+            font-size:13px; text-align:center; width:100%;
         }
-        #overlay-content {
-            position: relative;
-            text-align: center;
-            padding: 24px 32px;
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 24px;
-            min-width: 280px;
+        .result-buttons { width:100%; display:flex; flex-direction:column; gap:10px; }
+        .btn-primary-sm {
+            width:100%; padding:15px; border:none; border-radius:50px;
+            background:linear-gradient(135deg,#667eea,#764ba2);
+            color:white; font-size:18px; font-weight:800; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
         }
-        #overlay-emoji { font-size: 64px; display: block; margin-bottom: 8px; }
-        #overlay-title { font-size: 34px; font-weight: 800; margin-bottom: 6px; }
-        #overlay-sub {
-            font-size: 17px; opacity: 0.85;
-            margin-bottom: 6px;
-            white-space: pre-line;
-            line-height: 1.6;
+        .btn-primary-sm:active { transform:scale(0.97); }
+        .btn-outline {
+            width:100%; padding:12px; border:1px solid rgba(255,255,255,0.25); border-radius:50px;
+            background:transparent; color:white; font-size:15px; font-weight:600; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
         }
-        #overlay-record { font-size: 14px; opacity: 0.55; margin-bottom: 24px; }
-        #startBtn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white; border: none;
-            padding: 15px 48px;
-            font-size: 20px; font-weight: 700;
-            border-radius: 50px; cursor: pointer;
-            box-shadow: 0 8px 32px rgba(102,126,234,0.45);
-            -webkit-tap-highlight-color: transparent;
-            letter-spacing: 1px;
+        .btn-outline:active { background:rgba(255,255,255,0.08); }
+        .result-actions { display:flex; gap:10px; width:100%; }
+        .btn-action {
+            flex:1; padding:11px; border:1px solid rgba(255,255,255,0.2); border-radius:16px;
+            background:rgba(255,255,255,0.07); color:white;
+            font-size:13px; font-weight:600; cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
         }
-        #startBtn:active { transform: scale(0.95); }
+        .btn-action:active { background:rgba(255,255,255,0.15); }
 
-        /* ---- コンボバッジ ---- */
-        #combo-badge {
-            position: fixed;
-            top: env(safe-area-inset-top, 12px);
-            left: 50%;
-            transform: translateX(-50%);
-            margin-top: 72px;
-            background: linear-gradient(135deg, #ff6f00, #ffd740);
-            color: #1a1a1a;
-            font-size: 13px;
-            font-weight: 800;
-            padding: 4px 14px;
-            border-radius: 20px;
-            letter-spacing: 1px;
-            z-index: 11;
-            opacity: 0;
-            transition: opacity 0.2s;
-            pointer-events: none;
-            white-space: nowrap;
+        /* ===== ACHIEVEMENTS SCREEN ===== */
+        .achievement-grid { display:flex; flex-direction:column; gap:10px; }
+        .ach-item {
+            display:flex; align-items:center; gap:14px;
+            background:rgba(255,255,255,0.06); border-radius:14px; padding:12px 14px;
+            border:1px solid rgba(255,255,255,0.08);
         }
-        #combo-badge.visible { opacity: 1; }
+        .ach-item.unlocked { border-color:rgba(255,215,64,0.35); background:rgba(255,215,64,0.06); }
+        .ach-icon { font-size:32px; width:40px; text-align:center; flex-shrink:0; }
+        .ach-item.locked .ach-icon { filter:grayscale(1); opacity:0.3; }
+        .ach-info { flex:1; }
+        .ach-name { font-size:14px; font-weight:700; margin-bottom:2px; }
+        .ach-item.locked .ach-name { opacity:0.35; }
+        .ach-desc { font-size:11px; opacity:0.55; }
+        .ach-check { font-size:20px; }
 
-        /* ---- ボーナスポップ ---- */
-        #bonus-pop {
-            position: fixed;
-            top: 42%;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 44px;
-            font-weight: 900;
-            color: #ffd740;
-            text-shadow: 0 0 40px rgba(255,215,64,1);
-            pointer-events: none;
-            z-index: 32;
-            opacity: 0;
+        /* ===== STATS SCREEN ===== */
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .stat-card {
+            background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1);
+            border-radius:14px; padding:14px; text-align:center;
         }
-        #bonus-pop.show {
-            animation: bonusAnim 0.9s ease-out forwards;
-        }
-        @keyframes bonusAnim {
-            0%   { opacity: 1; transform: translateX(-50%) scale(0.6) translateY(0); }
-            30%  { opacity: 1; transform: translateX(-50%) scale(1.3) translateY(-10px); }
-            100% { opacity: 0; transform: translateX(-50%) scale(1)   translateY(-60px); }
-        }
-
-        /* ---- ペナルティ表示 ---- */
-        #penalty-pop {
-            position: fixed;
-            top: 30%;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 32px;
-            font-weight: 900;
-            color: #ff5252;
-            pointer-events: none;
-            z-index: 30;
-            opacity: 0;
-        }
-        #penalty-pop.show {
-            animation: penaltyAnim 1s ease-out forwards;
-        }
-        @keyframes penaltyAnim {
-            0%   { opacity: 1; transform: translateX(-50%) translateY(0); }
-            100% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
-        }
+        .stat-card.wide { grid-column:1/-1; }
+        .stat-icon { font-size:24px; margin-bottom:4px; }
+        .stat-label { font-size:10px; opacity:0.55; letter-spacing:1px; text-transform:uppercase; margin-bottom:4px; }
+        .stat-value { font-size:28px; font-weight:900; }
+        .stat-sub { font-size:11px; opacity:0.5; margin-top:2px; }
+        .best-by-diff { display:flex; justify-content:space-around; margin-top:8px; }
+        .best-by-diff-item { text-align:center; }
+        .best-by-diff-label { font-size:9px; opacity:0.5; letter-spacing:1px; }
+        .best-by-diff-val { font-size:20px; font-weight:800; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div class="ui-box">
-        <div class="ui-label">残り時間</div>
-        <div class="ui-value" id="timer-value">30.0</div>
-    </div>
-    <div class="ui-box">
-        <div class="ui-label">周回数</div>
-        <div class="ui-value" id="lap-value">0</div>
-    </div>
-    <div class="ui-box">
-        <div class="ui-label">ベスト</div>
-        <div class="ui-value" id="best-value">0</div>
+<!-- ===== HOME SCREEN ===== -->
+<div class="screen active" id="screen-home">
+    <div class="screen-inner">
+        <div class="home-top-row">
+            <div class="level-chip" id="home-level">Lv.1</div>
+            <div class="streak-chip" id="home-streak">🔥 0日</div>
+        </div>
+        <div class="home-logo">
+            <div class="home-title-emoji">🎯</div>
+            <div class="home-title">まわれ！</div>
+            <div class="home-subtitle">NIPPLE TRACE</div>
+        </div>
+        <div class="xp-section">
+            <div class="xp-label"><span id="home-xp-current">0</span> / <span id="home-xp-next">100</span> XP</div>
+            <div class="xp-bar-bg"><div class="xp-bar-fill" id="home-xp-bar"></div></div>
+        </div>
+        <div class="home-buttons">
+            <button class="btn-primary" id="btn-play">▶ プレイ</button>
+            <button class="btn-daily" id="btn-daily">📅 デイリーチャレンジ</button>
+            <div class="home-btns-row">
+                <button class="btn-secondary" id="btn-achievements">🏆 実績</button>
+                <button class="btn-secondary" id="btn-stats">📊 統計</button>
+            </div>
+        </div>
+        <button class="sound-btn" id="sound-btn">🔊 サウンド ON</button>
     </div>
 </div>
 
-<canvas id="gameCanvas"></canvas>
-
-<div id="progress-bar-container">
-    <div id="progress-bar"></div>
+<!-- ===== DIFFICULTY SCREEN ===== -->
+<div class="screen" id="screen-difficulty">
+    <div class="screen-inner">
+        <div class="screen-header">
+            <button class="btn-back" id="diff-back">←</button>
+            <h2>難易度選択</h2>
+        </div>
+        <div class="diff-grid">
+            <div class="diff-card easy" data-diff="easy">
+                <div class="diff-icon">😊</div>
+                <div class="diff-name">EASY</div>
+                <div class="diff-desc">45秒<br>広いコース<br>ペナルティ-2秒</div>
+                <div class="diff-xp">×1.0 XP</div>
+            </div>
+            <div class="diff-card normal" data-diff="normal">
+                <div class="diff-icon">😐</div>
+                <div class="diff-name">NORMAL</div>
+                <div class="diff-desc">30秒<br>標準コース<br>ペナルティ-3秒</div>
+                <div class="diff-xp">×1.5 XP</div>
+            </div>
+            <div class="diff-card hard" data-diff="hard">
+                <div class="diff-icon">😤</div>
+                <div class="diff-name">HARD</div>
+                <div class="diff-desc">20秒<br>狭いコース<br>ペナルティ-4秒</div>
+                <div class="diff-xp">×2.0 XP</div>
+            </div>
+            <div class="diff-card extreme" data-diff="extreme">
+                <div class="diff-icon">💀</div>
+                <div class="diff-name">EXTREME</div>
+                <div class="diff-desc">15秒<br>超狭コース<br>ペナルティ-5秒</div>
+                <div class="diff-xp">×3.0 XP</div>
+            </div>
+        </div>
+        <div class="diff-bests" id="diff-bests"></div>
+    </div>
 </div>
 
-<div id="lap-pop">+1周!</div>
-<div id="bonus-pop">🔥 BONUS +1!</div>
-<div id="combo-badge">🔥 1連続</div>
-<div id="penalty-pop">-3秒</div>
+<!-- ===== DAILY CHALLENGE SELECT SCREEN ===== -->
+<div class="screen" id="screen-daily">
+    <div class="screen-inner">
+        <div class="screen-header">
+            <button class="btn-back" id="daily-back">←</button>
+            <h2>デイリーチャレンジ</h2>
+        </div>
+        <div class="daily-card" id="daily-card">
+            <div class="daily-icon" id="daily-icon">🎯</div>
+            <div class="daily-name" id="daily-name">チャレンジ名</div>
+            <div class="daily-desc" id="daily-desc">説明</div>
+            <div class="daily-bonus" id="daily-bonus"></div>
+        </div>
+        <div id="daily-done-container"></div>
+        <button class="btn-primary" id="btn-daily-start">チャレンジ開始！</button>
+    </div>
+</div>
 
-<div id="overlay" class="active">
-    <div id="overlay-bg"></div>
-    <div id="overlay-content">
-        <span id="overlay-emoji">🎯</span>
-        <div id="overlay-title">まわれ！</div>
-        <div id="overlay-sub">30秒以内に何周できるか挑戦！\n乳首に触れると-3秒ペナルティ</div>
-        <div id="overlay-record"></div>
-        <button id="startBtn">スタート</button>
+<!-- ===== GAME SCREEN ===== -->
+<div class="screen" id="screen-game">
+    <div id="ui">
+        <div class="ui-box">
+            <div class="ui-label">残り時間</div>
+            <div class="ui-value" id="timer-value">30.0</div>
+        </div>
+        <div class="ui-box">
+            <div class="ui-label">スコア</div>
+            <div class="ui-value" id="score-value">0</div>
+        </div>
+        <div class="ui-box">
+            <div class="ui-label">ベスト</div>
+            <div class="ui-value" id="best-value">0</div>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="lap-pop">+1周!</div>
+    <div id="bonus-pop">🔥 BONUS +1!</div>
+    <div id="combo-badge">🔥 1連続</div>
+    <div id="penalty-pop">-3秒</div>
+    <div id="levelup-pop">⬆️ LEVEL UP!</div>
+    <div id="achievement-toast"></div>
+    <div id="progress-bar-container"><div id="progress-bar"></div></div>
+    <button id="ad-reward-btn" style="display:none;">📺 広告を見て +5秒</button>
+</div>
+
+<!-- ===== RESULT SCREEN ===== -->
+<div class="screen" id="screen-result">
+    <div class="screen-inner">
+        <div id="result-emoji">🎉</div>
+        <div id="result-title">0ポイント！</div>
+        <div id="result-breakdown"></div>
+        <div class="result-xp-section">
+            <div class="result-xp-label">+<span id="result-xp">0</span> XP 獲得！</div>
+            <div class="xp-bar-bg"><div class="xp-bar-fill" id="result-xp-bar"></div></div>
+            <div id="result-level-label">Lv.<span id="result-level">1</span></div>
+        </div>
+        <div id="result-achievement" style="display:none;"></div>
+        <div class="result-buttons">
+            <button class="btn-primary-sm" id="btn-retry">もう一度</button>
+            <button class="btn-outline" id="btn-menu">メニューへ</button>
+        </div>
+        <div class="result-actions">
+            <button class="btn-action" id="btn-share">📤 シェア</button>
+            <button class="btn-action" id="btn-leaderboard">🏆 ランキング</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== ACHIEVEMENTS SCREEN ===== -->
+<div class="screen" id="screen-achievements">
+    <div class="screen-inner">
+        <div class="screen-header">
+            <button class="btn-back" id="ach-back">←</button>
+            <h2>🏆 実績</h2>
+        </div>
+        <div class="achievement-grid" id="achievement-grid"></div>
+    </div>
+</div>
+
+<!-- ===== STATS SCREEN ===== -->
+<div class="screen" id="screen-stats">
+    <div class="screen-inner">
+        <div class="screen-header">
+            <button class="btn-back" id="stats-back">←</button>
+            <h2>📊 統計</h2>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
     </div>
 </div>
 
 <script>
-const canvas    = document.getElementById('gameCanvas');
-const ctx       = canvas.getContext('2d');
-const overlay   = document.getElementById('overlay');
-const overlayEmoji  = document.getElementById('overlay-emoji');
-const overlayTitle  = document.getElementById('overlay-title');
-const overlaySub    = document.getElementById('overlay-sub');
-const overlayRecord = document.getElementById('overlay-record');
-const startBtn      = document.getElementById('startBtn');
-const progressBar   = document.getElementById('progress-bar');
-const timerEl       = document.getElementById('timer-value');
-const lapEl         = document.getElementById('lap-value');
-const bestEl        = document.getElementById('best-value');
-const lapPop        = document.getElementById('lap-pop');
-const bonusPop      = document.getElementById('bonus-pop');
-const comboBadge    = document.getElementById('combo-badge');
-const penaltyPop    = document.getElementById('penalty-pop');
+/* ================================================
+   STORAGE MANAGER
+   ================================================ */
+const Store = {
+    get(key, def) {
+        try { const v = localStorage.getItem('ntg_'+key); return v!==null?JSON.parse(v):def; }
+        catch { return def; }
+    },
+    set(key, val) { try { localStorage.setItem('ntg_'+key,JSON.stringify(val)); } catch {} }
+};
 
-// ---- リサイズ ----
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+/* ================================================
+   SAVE DATA
+   ================================================ */
+const save = {
+    get totalXP()       { return Store.get('totalXP', 0); },
+    set totalXP(v)      { Store.set('totalXP', v); },
+    get totalGames()    { return Store.get('totalGames', 0); },
+    set totalGames(v)   { Store.set('totalGames', v); },
+    get totalLaps()     { return Store.get('totalLaps', 0); },
+    set totalLaps(v)    { Store.set('totalLaps', v); },
+    get totalPenalties(){ return Store.get('totalPenalties', 0); },
+    set totalPenalties(v){ Store.set('totalPenalties', v); },
+    get bestScores()    { return Store.get('bestScores', {}); },
+    setBestScore(diff, score) {
+        const b = this.bestScores; b[diff] = Math.max(b[diff]||0, score);
+        Store.set('bestScores', b);
+    },
+    get achievements()  { return Store.get('achievements', {}); },
+    unlockAchievement(id) {
+        const a = this.achievements;
+        if (!a[id]) { a[id] = Date.now(); Store.set('achievements', a); return true; }
+        return false;
+    },
+    isAchievement(id)   { return !!this.achievements[id]; },
+    get streak()        { return Store.get('streak', { count:0, lastDate:null }); },
+    set streak(v)       { Store.set('streak', v); },
+    get soundOn()       { return Store.get('soundOn', true); },
+    set soundOn(v)      { Store.set('soundOn', v); },
+    get dailyDate()     { return Store.get('dailyDate', null); },
+    set dailyDate(v)    { Store.set('dailyDate', v); },
+};
+
+/* ================================================
+   LEVEL SYSTEM
+   ================================================ */
+function getLevelFromXP(xp) {
+    return Math.floor((1 + Math.sqrt(1 + 8*xp/100)) / 2);
+}
+function getTotalXPForLevel(lv) { return lv*(lv-1)/2*100; }
+function getXPForNextLevel(lv)  { return lv*100; }
+function getLevelProgress(xp) {
+    const lv = getLevelFromXP(xp);
+    const base = getTotalXPForLevel(lv);
+    const needed = getXPForNextLevel(lv);
+    return { lv, pct: (xp - base) / needed, cur: xp-base, max: needed };
+}
+
+/* ================================================
+   AUDIO SYSTEM (Web Audio API)
+   ================================================ */
+let audioCtx = null;
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    return audioCtx;
+}
+function playTone(freq, dur, type='sine', vol=0.25, delay=0) {
+    if (!save.soundOn) return;
+    try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = type;
+        const t = ctx.currentTime + delay;
+        gain.gain.setValueAtTime(vol, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        osc.start(t); osc.stop(t + dur);
+    } catch(e) {}
+}
+function playLapSound()      { [523,659,784].forEach((f,i) => playTone(f,0.15,'sine',0.25,i*0.09)); }
+function playBonusSound()    { [523,659,784,1047].forEach((f,i) => playTone(f,0.2,'sine',0.35,i*0.08)); }
+function playPenaltySound()  { playTone(220,0.25,'sawtooth',0.35); setTimeout(()=>playTone(180,0.2,'sawtooth',0.25),120); }
+function playLevelUpSound()  { [523,659,784,1047,1319].forEach((f,i) => playTone(f,0.25,'sine',0.38,i*0.1)); }
+function playAchievementSound(){ [784,988,1319,784,1047,1568].forEach((f,i) => playTone(f,0.2,'sine',0.32,i*0.08)); }
+function playGameOverSound() { [400,300,200].forEach((f,i) => playTone(f,0.3,'sine',0.3,i*0.15)); }
+function playStartSound()    { [392,523,659].forEach((f,i) => playTone(f,0.15,'sine',0.28,i*0.08)); }
+
+/* ================================================
+   NATIVE BRIDGE (Swift/WKWebView)
+   ================================================ */
+function nativeSend(handler, data) {
+    try {
+        if (window.webkit?.messageHandlers?.[handler])
+            window.webkit.messageHandlers[handler].postMessage(data);
+    } catch(e) {}
+}
+// Called by Swift after reward ad viewed
+window.onAdRewarded = function() {
+    if (gameState === 'playing') {
+        timeLeft = Math.min(timeLeft + 5, currentDiff().time);
+        adUsed = true;
+        document.getElementById('ad-reward-btn').style.display = 'none';
+        flashColor = '#00e5ff'; flashAlpha = 0.5;
+        showFloatText('+5秒！', '#00e5ff');
+    }
+};
+// Called by Swift when Game Center auth done
+window.onGameCenterAuth = function(ok) { /* handled natively */ };
+
+/* ================================================
+   DIFFICULTY CONFIG
+   ================================================ */
+const DIFFS = {
+    easy:    { time:45, trackMin:48, penalty:2, comboBon:3, xpMult:1.0, color:'#00e676', label:'EASY' },
+    normal:  { time:30, trackMin:40, penalty:3, comboBon:3, xpMult:1.5, color:'#ffd740', label:'NORMAL' },
+    hard:    { time:20, trackMin:36, penalty:4, comboBon:3, xpMult:2.0, color:'#ff6d00', label:'HARD' },
+    extreme: { time:15, trackMin:33, penalty:5, comboBon:3, xpMult:3.0, color:'#ff1744', label:'EXTREME' },
+};
+const NIPPLE_R = 28, AREOLA_R = 72;
+
+/* ================================================
+   DAILY CHALLENGES
+   ================================================ */
+const DAILY_TYPES = [
+    { name:'タイムラッシュ',   icon:'⚡', desc:'制限時間20秒！でもボーナスは2倍！', bonus:'🌟 ボーナス2倍', mods:{time:20, xpMult:2.5} },
+    { name:'狭軌道',           icon:'🎯', desc:'コースが超狭い！ちょっとでも触れると即ペナルティ', bonus:'', mods:{trackMin:34} },
+    { name:'エンデュランス',   icon:'🏃', desc:'60秒の持久戦！集中力が試される', bonus:'🌟 超大量XP', mods:{time:60, xpMult:2.0} },
+    { name:'スーパーコンボ',   icon:'🔥', desc:'2連続クリアでボーナス発生！', bonus:'🌟 コンボしやすい', mods:{comboBon:2} },
+    { name:'ダブルペナルティ', icon:'💥', desc:'乳首に触れると-6秒の激辛ペナルティ！', bonus:'', mods:{penalty:6} },
+];
+function getDailyChallenge() {
+    const day = Math.floor(Date.now() / 86400000);
+    return DAILY_TYPES[day % DAILY_TYPES.length];
+}
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+
+/* ================================================
+   STREAK SYSTEM
+   ================================================ */
+function updateStreak() {
+    const today = todayStr();
+    const s = save.streak;
+    if (s.lastDate === today) return;
+    const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
+    save.streak = { count: s.lastDate===yesterday ? s.count+1 : 1, lastDate: today };
+}
+
+/* ================================================
+   ACHIEVEMENTS
+   ================================================ */
+const ACH_LIST = [
+    { id:'first_play',    icon:'👶', name:'はじめての一歩',   desc:'初めてゲームをプレイ' },
+    { id:'five_laps',     icon:'🌀', name:'まわるくん',       desc:'1ゲームで5周以上達成' },
+    { id:'combo_king',    icon:'🔥', name:'コンボキング',     desc:'1ゲームでボーナス3回以上' },
+    { id:'no_miss',       icon:'✨', name:'ノーミス',         desc:'NOMALLか上でペナルティなしで1周以上' },
+    { id:'speed_master',  icon:'⚡', name:'スピードマスター', desc:'HARDで8周以上' },
+    { id:'streak_7',      icon:'📅', name:'毎日の習慣',       desc:'7日連続プレイ' },
+    { id:'hundred_laps',  icon:'💯', name:'百周達成',         desc:'累計100周以上' },
+    { id:'legend',        icon:'👑', name:'レジェンド',       desc:'レベル10に到達' },
+    { id:'daily_clear',   icon:'🗓️', name:'デイリークリア',   desc:'デイリーチャレンジで1周以上' },
+    { id:'extreme_5',     icon:'💀', name:'極限への挑戦',     desc:'EXTREMEで5ポイント以上' },
+];
+
+function checkAchievements(gameResult) {
+    const unlocked = [];
+    const { laps, bonus, penalties, diff, isDaily } = gameResult || {};
+    const total = (laps||0) + (bonus||0);
+    const check = (id, cond) => { if (cond && save.unlockAchievement(id)) unlocked.push(id); };
+    check('first_play',   save.totalGames >= 1);
+    check('five_laps',    laps >= 5);
+    check('combo_king',   bonus >= 3);
+    check('no_miss',      penalties===0 && (diff==='normal'||diff==='hard'||diff==='extreme') && laps>=1);
+    check('speed_master', diff==='hard' && laps >= 8);
+    check('streak_7',     save.streak.count >= 7);
+    check('hundred_laps', save.totalLaps >= 100);
+    check('legend',       getLevelFromXP(save.totalXP) >= 10);
+    check('daily_clear',  isDaily && laps >= 1);
+    check('extreme_5',    diff==='extreme' && total >= 5);
+    return unlocked;
+}
+
+/* ================================================
+   SCREEN NAVIGATION
+   ================================================ */
+let currentScreen = 'home';
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-'+id).classList.add('active');
+    currentScreen = id;
+    if (id === 'home') refreshHome();
+    if (id === 'achievements') renderAchievements();
+    if (id === 'stats') renderStats();
+}
+
+/* ================================================
+   HOME UI UPDATE
+   ================================================ */
+function refreshHome() {
+    const prog = getLevelProgress(save.totalXP);
+    document.getElementById('home-level').textContent = `Lv.${prog.lv}`;
+    document.getElementById('home-streak').textContent = `🔥 ${save.streak.count}日`;
+    document.getElementById('home-xp-current').textContent = prog.cur;
+    document.getElementById('home-xp-next').textContent = prog.max;
+    document.getElementById('home-xp-bar').style.width = (prog.pct*100) + '%';
+    const soundBtn = document.getElementById('sound-btn');
+    soundBtn.textContent = save.soundOn ? '🔊 サウンド ON' : '🔇 サウンド OFF';
+
+    const daily = getDailyChallenge();
+    const btnDaily = document.getElementById('btn-daily');
+    const done = save.dailyDate === todayStr();
+    btnDaily.textContent = done ? `✅ ${daily.name} (クリア済み)` : `📅 ${daily.name}`;
+    btnDaily.classList.toggle('completed', done);
+}
+
+/* ================================================
+   DIFFICULTY SCREEN
+   ================================================ */
+function showDifficultyScreen() {
+    // Update best scores display
+    const bests = save.bestScores;
+    const diffsOrder = ['easy','normal','hard','extreme'];
+    const el = document.getElementById('diff-bests');
+    el.innerHTML = diffsOrder.map(d => `
+        <div class="diff-best-item">
+            <div class="diff-best-label">${DIFFS[d].label} ベスト</div>
+            <div class="diff-best-val" style="color:${DIFFS[d].color}">${bests[d]||0}</div>
+        </div>`).join('');
+    showScreen('difficulty');
+}
+
+/* ================================================
+   DAILY SCREEN
+   ================================================ */
+function showDailyScreen() {
+    const daily = getDailyChallenge();
+    document.getElementById('daily-icon').textContent = daily.icon;
+    document.getElementById('daily-name').textContent = daily.name;
+    document.getElementById('daily-desc').textContent = daily.desc;
+    document.getElementById('daily-bonus').textContent = daily.bonus;
+
+    const done = save.dailyDate === todayStr();
+    const container = document.getElementById('daily-done-container');
+    if (done) {
+        container.innerHTML = '<div class="daily-done-badge">✅ 本日クリア済み！</div>';
+        document.getElementById('btn-daily-start').textContent = 'もう一度やる';
+    } else {
+        container.innerHTML = '';
+        document.getElementById('btn-daily-start').textContent = 'チャレンジ開始！';
+    }
+    showScreen('daily');
+}
+
+/* ================================================
+   ACHIEVEMENTS UI
+   ================================================ */
+function renderAchievements() {
+    const el = document.getElementById('achievement-grid');
+    const ach = save.achievements;
+    el.innerHTML = ACH_LIST.map(a => {
+        const unlocked = !!ach[a.id];
+        return `<div class="ach-item ${unlocked?'unlocked':'locked'}">
+            <div class="ach-icon">${a.icon}</div>
+            <div class="ach-info">
+                <div class="ach-name">${a.name}</div>
+                <div class="ach-desc">${a.desc}</div>
+            </div>
+            <div class="ach-check">${unlocked?'✅':'🔒'}</div>
+        </div>`;
+    }).join('');
+}
+
+/* ================================================
+   STATS UI
+   ================================================ */
+function renderStats() {
+    const bests = save.bestScores;
+    const prog  = getLevelProgress(save.totalXP);
+    document.getElementById('stats-grid').innerHTML = `
+        <div class="stat-card">
+            <div class="stat-icon">🎮</div>
+            <div class="stat-label">総プレイ回数</div>
+            <div class="stat-value">${save.totalGames}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🌀</div>
+            <div class="stat-label">総周回数</div>
+            <div class="stat-value">${save.totalLaps}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-label">総XP</div>
+            <div class="stat-value">${save.totalXP}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-label">連続プレイ</div>
+            <div class="stat-value">${save.streak.count}<span style="font-size:14px;opacity:0.6">日</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👑</div>
+            <div class="stat-label">現在のレベル</div>
+            <div class="stat-value">Lv.${prog.lv}</div>
+            <div class="stat-sub">次まで ${prog.max - prog.cur} XP</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">💥</div>
+            <div class="stat-label">総ペナルティ</div>
+            <div class="stat-value">${save.totalPenalties}</div>
+        </div>
+        <div class="stat-card wide">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-label">難易度別ベストスコア</div>
+            <div class="best-by-diff">
+                ${['easy','normal','hard','extreme'].map(d => `
+                <div class="best-by-diff-item">
+                    <div class="best-by-diff-label" style="color:${DIFFS[d].color}">${DIFFS[d].label}</div>
+                    <div class="best-by-diff-val">${bests[d]||0}</div>
+                </div>`).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/* ================================================
+   GAME ENGINE
+   ================================================ */
+const canvas   = document.getElementById('gameCanvas');
+const ctx      = canvas.getContext('2d');
+const timerEl  = document.getElementById('timer-value');
+const scoreEl  = document.getElementById('score-value');
+const bestEl   = document.getElementById('best-value');
+const progressBar = document.getElementById('progress-bar');
+const lapPop   = document.getElementById('lap-pop');
+const bonusPop = document.getElementById('bonus-pop');
+const comboBadge= document.getElementById('combo-badge');
+const penaltyPop= document.getElementById('penalty-pop');
+const levelupPop= document.getElementById('levelup-pop');
+const achToast = document.getElementById('achievement-toast');
+const adBtn    = document.getElementById('ad-reward-btn');
+
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
 resize();
 window.addEventListener('resize', resize);
 
-// ---- 定数 ----
-const NIPPLE_R    = 28;
-const AREOLA_R    = 72;
-const TRACK_MIN   = NIPPLE_R + 12;
-const START_ANGLE = -Math.PI / 2;
-const TIME_LIMIT  = 30.0;   // 秒
-const PENALTY_SEC = 3.0;    // 乳首タッチのペナルティ
+let gameState = 'idle';
+let timeLeft, lapCount, totalAngle, lastAngle, touching, path;
+let flashAlpha, flashColor, particles, animFrame;
+let penaltyCooldown, consecutiveLaps, bonusCount, bonusCharTimer;
+let penaltyCount, lastTick;
+let currentDiffKey = 'normal';
+let isDailyGame = false;
+let adUsed = false;
+let dailyMods = {};
+let xpEarned = 0;
+let prevLevel = 1;
 
-// ---- 状態 ----
-let state       = 'idle';   // idle | playing | result
-let timeLeft    = TIME_LIMIT;
-let lapCount    = 0;
-let bestLaps    = 0;
-let totalAngle  = 0;
-let lastAngle   = null;
-let touching    = false;
-let path        = [];
-let animFrame   = 0;
-let flashAlpha  = 0;
-let flashColor  = '#fff';
-let particles   = [];
-let lastTick        = 0;
-let penaltyCooldown = 0;  // 連続ペナルティ防止フレーム
-let consecutiveLaps = 0;  // ペナルティなしの連続周回数
-let bonusCount      = 0;  // ボーナスで加算したポイント合計
-const COMBO_BONUS   = 3;  // 何連続でボーナス発生するか
-let bonusCharTimer  = 0;  // キャラ表示カウンタ（130→0）
+function currentDiff() {
+    const base = { ...DIFFS[currentDiffKey] };
+    // Apply daily mods
+    Object.assign(base, dailyMods);
+    return base;
+}
 
-// ---- スタート ----
-startBtn.addEventListener('click', startGame);
-startBtn.addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, { passive: false });
+/* ---- START GAME ---- */
+function startGame(diffKey, isDaily, mods) {
+    currentDiffKey = diffKey;
+    isDailyGame    = isDaily || false;
+    dailyMods      = mods || {};
+    const cfg = currentDiff();
 
-function startGame() {
-    state       = 'playing';
-    timeLeft    = TIME_LIMIT;
-    lapCount    = 0;
-    totalAngle  = 0;
-    lastAngle   = null;
-    touching    = false;
-    path        = [];
-    flashAlpha  = 0;
-    particles   = [];
+    gameState       = 'playing';
+    timeLeft        = cfg.time;
+    lapCount        = 0;
+    totalAngle      = 0;
+    lastAngle       = null;
+    touching        = false;
+    path            = [];
+    flashAlpha      = 0;
+    flashColor      = '#fff';
+    particles       = [];
+    animFrame       = 0;
     penaltyCooldown = 0;
     consecutiveLaps = 0;
     bonusCount      = 0;
     bonusCharTimer  = 0;
-    lastTick    = performance.now();
-    lapEl.textContent    = '0';
+    penaltyCount    = 0;
+    adUsed          = false;
+    xpEarned        = 0;
+    prevLevel       = getLevelFromXP(save.totalXP);
+    lastTick        = performance.now();
+
+    scoreEl.textContent = '0';
     comboBadge.classList.remove('visible');
-    timerEl.textContent  = TIME_LIMIT.toFixed(1);
+    timerEl.textContent = cfg.time.toFixed(1);
     timerEl.classList.remove('danger');
     progressBar.style.width = '0%';
     progressBar.style.background = 'linear-gradient(90deg,#00c853,#69f0ae)';
-    overlay.classList.remove('active');
+    adBtn.style.display = 'none';
+
+    const bests = save.bestScores;
+    bestEl.textContent = bests[currentDiffKey] || 0;
+
+    showScreen('game');
+    playStartSound();
+
+    // Unlock first_play early
+    save.totalGames++;
+    updateStreak();
 }
 
+/* ---- SHOW RESULT ---- */
 function showResult() {
-    state = 'result';
+    gameState = 'result';
     const totalScore = lapCount + bonusCount;
-    const isNew = totalScore > bestLaps;
-    if (isNew) bestLaps = totalScore;
-    bestEl.textContent = bestLaps;
+    const cfg = currentDiff();
 
-    overlayEmoji.textContent = totalScore >= 6 ? '🏆' : totalScore >= 3 ? '🎉' : '😅';
-    overlayTitle.textContent = `${totalScore}ポイント！`;
-    const bonusLine = bonusCount > 0 ? `\n🔥 3連続ボーナス: +${bonusCount}pt` : '';
-    overlaySub.textContent = `周回: ${lapCount}周${bonusLine}`;
-    overlayRecord.textContent = isNew ? '🌟 新記録達成！' : `ベスト: ${bestLaps}pt`;
-    startBtn.textContent = 'もう一度';
-    overlay.classList.add('active');
+    // Save best
+    save.setBestScore(currentDiffKey, totalScore);
+    save.totalLaps += lapCount;
+    save.totalPenalties += penaltyCount;
+
+    // XP
+    const xpPerLap   = Math.round(10 * cfg.xpMult);
+    const xpPerBonus = Math.round(25 * cfg.xpMult);
+    xpEarned = lapCount*xpPerLap + bonusCount*xpPerBonus;
+    if (totalScore >= 3) xpEarned += Math.round(20 * cfg.xpMult);
+    const oldXP = save.totalXP;
+    save.totalXP += xpEarned;
+
+    // Level up?
+    const newLevel = getLevelFromXP(save.totalXP);
+    const didLevelUp = newLevel > prevLevel;
+    if (didLevelUp) { playLevelUpSound(); nativeSend('haptic', {type:'levelup'}); }
+
+    // Daily
+    if (isDailyGame && lapCount >= 1) save.dailyDate = todayStr();
+
+    // Achievements
+    const gameResult = {
+        laps: lapCount, bonus: bonusCount, penalties: penaltyCount,
+        diff: currentDiffKey, isDaily: isDailyGame
+    };
+    const unlocked = checkAchievements(gameResult);
+    if (unlocked.length > 0) {
+        playAchievementSound();
+        nativeSend('haptic', {type:'achievement'});
+    }
+
+    // Submit score to Game Center
+    nativeSend('gameCenter', { action:'submitScore', score:totalScore, difficulty:currentDiffKey });
+
+    // Build result screen
+    document.getElementById('result-emoji').textContent = totalScore>=8?'🏆':totalScore>=5?'🎉':totalScore>=2?'😊':'😅';
+    document.getElementById('result-title').textContent = `${totalScore} ポイント！`;
+
+    const diffColor = cfg.color;
+    let breakdown = `<span style="opacity:0.6">難易度</span>: <strong style="color:${diffColor}">${cfg.label}</strong><br>`;
+    breakdown += `🌀 周回: <strong>${lapCount}周</strong>`;
+    if (bonusCount>0) breakdown += `　🔥 ボーナス: <strong>+${bonusCount}pt</strong>`;
+    if (penaltyCount>0) breakdown += `<br>💥 ペナルティ: <strong>${penaltyCount}回</strong>`;
+    if (isDailyGame) breakdown += `<br>📅 <strong>デイリーチャレンジ</strong>`;
+    document.getElementById('result-breakdown').innerHTML = breakdown;
+
+    // XP display
+    const prog = getLevelProgress(save.totalXP);
+    document.getElementById('result-xp').textContent = xpEarned;
+    document.getElementById('result-level').textContent = prog.lv;
+    document.getElementById('result-xp-bar').style.width = (prog.pct*100)+'%';
+
+    // Level up message
+    if (didLevelUp) {
+        document.getElementById('result-level-label').innerHTML =
+            `<span style="color:#f093fb;font-weight:800">⬆️ Lv.${newLevel} に UP！</span>`;
+    } else {
+        document.getElementById('result-level-label').textContent = `Lv.${prog.lv}`;
+    }
+
+    // Achievement display
+    const achEl = document.getElementById('result-achievement');
+    if (unlocked.length > 0) {
+        const a = ACH_LIST.find(x => x.id === unlocked[0]);
+        achEl.innerHTML = `🏆 実績解除！<br><strong>${a.icon} ${a.name}</strong>`;
+        achEl.style.display = 'block';
+    } else {
+        achEl.style.display = 'none';
+    }
+
+    playGameOverSound();
+    showScreen('result');
 }
 
-// ---- タッチ / マウス ----
+/* ---- TOUCH / MOUSE ---- */
 function getPos(e) {
     const r = canvas.getBoundingClientRect();
-    if (e.touches && e.touches.length > 0)
-        return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    if (e.touches?.length > 0) return { x:e.touches[0].clientX-r.left, y:e.touches[0].clientY-r.top };
+    return { x:e.clientX-r.left, y:e.clientY-r.top };
 }
-
-canvas.addEventListener('touchstart',  e => { e.preventDefault(); if (state==='playing'){ touching=true; processInput(getPos(e)); } }, { passive: false });
-canvas.addEventListener('touchmove',   e => { e.preventDefault(); if (state==='playing' && touching) processInput(getPos(e)); }, { passive: false });
-canvas.addEventListener('touchend',    e => { e.preventDefault(); touching=false; if (state==='playing') resetCurrentLap(); }, { passive: false });
-canvas.addEventListener('mousedown',   e => { if (state==='playing'){ touching=true; processInput(getPos(e)); } });
-canvas.addEventListener('mousemove',   e => { if (state==='playing' && (e.buttons&1)) processInput(getPos(e)); });
-canvas.addEventListener('mouseup',     ()  => { touching=false; if (state==='playing') resetCurrentLap(); });
+canvas.addEventListener('touchstart', e=>{ e.preventDefault(); if(gameState==='playing'){touching=true;processInput(getPos(e));} }, {passive:false});
+canvas.addEventListener('touchmove',  e=>{ e.preventDefault(); if(gameState==='playing'&&touching)processInput(getPos(e)); }, {passive:false});
+canvas.addEventListener('touchend',   e=>{ e.preventDefault(); touching=false; if(gameState==='playing')resetCurrentLap(); }, {passive:false});
+canvas.addEventListener('mousedown',  e=>{ if(gameState==='playing'){touching=true;processInput(getPos(e));} });
+canvas.addEventListener('mousemove',  e=>{ if(gameState==='playing'&&(e.buttons&1))processInput(getPos(e)); });
+canvas.addEventListener('mouseup',    ()=>{ touching=false; if(gameState==='playing')resetCurrentLap(); });
 
 function resetCurrentLap() {
-    // 指を離したら現在の周回進捗リセット（完了済みのlapCountは保持）
-    const completedAngle = lapCount * Math.PI * 2;
-    totalAngle = completedAngle;
+    totalAngle = lapCount * Math.PI * 2;
     lastAngle  = null;
     path       = [];
     progressBar.style.width = '0%';
 }
 
-function processInput(pos) {
-    const cx = canvas.width / 2, cy = canvas.height / 2;
-    const dx = pos.x - cx, dy = pos.y - cy;
-    const dist = Math.sqrt(dx*dx + dy*dy);
+/* ---- FLOAT TEXT ---- */
+function showFloatText(text, color) {
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:35%;left:50%;transform:translateX(-50%);
+        font-size:28px;font-weight:900;color:${color};z-index:50;pointer-events:none;
+        animation:penaltyAnim 1s ease-out forwards;white-space:nowrap;`;
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1100);
+}
 
-    // 乳首ヒット
-    if (dist <= TRACK_MIN) {
+/* ---- PROCESS INPUT ---- */
+function processInput(pos) {
+    const cx = canvas.width/2, cy = canvas.height/2;
+    const dx = pos.x-cx, dy = pos.y-cy;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    const cfg = currentDiff();
+
+    if (dist <= cfg.trackMin) {
         if (penaltyCooldown <= 0) {
-            timeLeft = Math.max(0, timeLeft - PENALTY_SEC);
-            flashColor = '#ff4444';
-            flashAlpha = 1;
+            timeLeft = Math.max(0, timeLeft - cfg.penalty);
+            flashColor = '#ff4444'; flashAlpha = 1;
             penaltyCooldown = 40;
-            // 連続カウントをリセット
-            consecutiveLaps = 0;
+            consecutiveLaps = 0; penaltyCount++;
             comboBadge.classList.remove('visible');
-            showPenaltyPop();
+            showPenaltyPop(`-${cfg.penalty}秒`);
+            playPenaltySound();
+            nativeSend('haptic', {type:'penalty'});
             resetCurrentLap();
         }
         return;
     }
 
-    path.push({ x: pos.x, y: pos.y });
-
-    // 角度追跡
+    path.push({x:pos.x, y:pos.y});
     const angle = Math.atan2(dy, dx);
     if (lastAngle !== null) {
         let delta = angle - lastAngle;
-        if (delta >  Math.PI) delta -= Math.PI * 2;
-        if (delta < -Math.PI) delta += Math.PI * 2;
+        if (delta >  Math.PI) delta -= Math.PI*2;
+        if (delta < -Math.PI) delta += Math.PI*2;
         totalAngle += delta;
     }
     lastAngle = angle;
 
-    // 周回カウント
-    const newLapCount = Math.floor(Math.abs(totalAngle) / (Math.PI * 2));
+    const newLapCount = Math.floor(Math.abs(totalAngle) / (Math.PI*2));
     if (newLapCount > lapCount) {
         lapCount = newLapCount;
         consecutiveLaps++;
 
-        // 3連続クリアでボーナス +1
-        if (consecutiveLaps % COMBO_BONUS === 0) {
+        if (consecutiveLaps % cfg.comboBon === 0) {
             bonusCount++;
             showBonusPop();
+            playBonusSound();
+            nativeSend('haptic', {type:'bonus'});
         }
 
-        // コンボバッジ更新
         comboBadge.textContent = `🔥 ${consecutiveLaps}連続`;
         comboBadge.classList.add('visible');
-
-        lapEl.textContent = lapCount + bonusCount;
-        flashColor = '#00e676';
-        flashAlpha = 0.7;
-        spawnParticles();
+        scoreEl.textContent = lapCount + bonusCount;
+        flashColor = '#00e676'; flashAlpha = 0.7;
+        spawnParticles(false);
         showLapPop();
-        path = [];  // 軌跡をリセットして次周へ
+        playLapSound();
+        nativeSend('haptic', {type:'lap'});
+        path = [];
     }
 
-    // 現在周回内の進捗
-    const withinLap = Math.abs(totalAngle) - lapCount * Math.PI * 2;
-    const pct = Math.min(withinLap / (Math.PI * 2) * 100, 100);
+    const withinLap = Math.abs(totalAngle) - lapCount*Math.PI*2;
+    const pct = Math.min(withinLap/(Math.PI*2)*100, 100);
     progressBar.style.width = pct + '%';
 }
 
-function showLapPop() {
-    lapPop.textContent = `+1周!`;
-    lapPop.classList.remove('pop');
-    void lapPop.offsetWidth;
-    lapPop.classList.add('pop');
+/* ---- POPUP HELPERS ---- */
+function showLapPop()       { lapPop.classList.remove('pop'); void lapPop.offsetWidth; lapPop.classList.add('pop'); }
+function showBonusPop()     { bonusPop.classList.remove('show'); void bonusPop.offsetWidth; bonusPop.classList.add('show'); bonusCharTimer=130; }
+function showPenaltyPop(txt){ penaltyPop.textContent=txt; penaltyPop.classList.remove('show'); void penaltyPop.offsetWidth; penaltyPop.classList.add('show'); }
+function showLevelupPop()   { levelupPop.classList.remove('show'); void levelupPop.offsetWidth; levelupPop.classList.add('show'); }
+function showAchievementToast(id) {
+    const a = ACH_LIST.find(x=>x.id===id);
+    if (!a) return;
+    achToast.innerHTML = `${a.icon} 実績解除！ <strong>${a.name}</strong>`;
+    achToast.classList.remove('show'); void achToast.offsetWidth; achToast.classList.add('show');
 }
 
-function showBonusPop() {
-    bonusPop.classList.remove('show');
-    void bonusPop.offsetWidth;
-    bonusPop.classList.add('show');
-    bonusCharTimer = 130;  // キャラアニメ開始
-}
-
-function showPenaltyPop() {
-    penaltyPop.classList.remove('show');
-    void penaltyPop.offsetWidth;
-    penaltyPop.classList.add('show');
-}
-
-// ---- タイマー更新 ----
+/* ---- TIMER ---- */
 function updateTimer(now) {
-    if (state !== 'playing') return;
-    const dt = (now - lastTick) / 1000;
-    lastTick = now;
+    if (gameState !== 'playing') return;
+    const dt = (now - lastTick) / 1000; lastTick = now;
     if (penaltyCooldown > 0) penaltyCooldown--;
 
     timeLeft = Math.max(0, timeLeft - dt);
     timerEl.textContent = timeLeft.toFixed(1);
-
     if (timeLeft <= 5) timerEl.classList.add('danger');
 
+    // Ad reward button
+    if (timeLeft <= 10 && !adUsed && adBtn.style.display === 'none') {
+        adBtn.style.display = 'block';
+    }
+
     if (timeLeft <= 0) {
-        spawnParticles();
-        setTimeout(showResult, 400);
+        spawnParticles(true);
         state = 'result_pending';
+        setTimeout(showResult, 500);
+        gameState = 'result_pending';
     }
 }
 
-// ---- パーティクル ----
-function spawnParticles() {
-    const cx = canvas.width/2, cy = canvas.height/2;
-    for (let i = 0; i < 30; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const s = 2 + Math.random() * 5;
+/* ---- PARTICLES ---- */
+function spawnParticles(big) {
+    const cx=canvas.width/2, cy=canvas.height/2;
+    const n = big ? 60 : 25;
+    for (let i=0;i<n;i++) {
+        const a = Math.random()*Math.PI*2;
+        const s = (big?3:2) + Math.random()*5;
         particles.push({
-            x: cx, y: cy,
-            vx: Math.cos(a)*s, vy: Math.sin(a)*s - 1,
-            life: 1, decay: 0.025 + Math.random()*0.02,
-            size: 3 + Math.random()*5,
-            color: `hsl(${Math.random()*360},100%,65%)`
+            x:cx, y:cy, vx:Math.cos(a)*s, vy:Math.sin(a)*s-1,
+            life:1, decay:0.02+Math.random()*0.02,
+            size:3+Math.random()*(big?8:5),
+            color:`hsl(${Math.random()*360},100%,65%)`
         });
     }
 }
 function updateParticles() {
-    for (let i = particles.length-1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += 0.18;
-        p.life -= p.decay;
-        if (p.life <= 0) particles.splice(i, 1);
+    for (let i=particles.length-1;i>=0;i--) {
+        const p=particles[i];
+        p.x+=p.vx; p.y+=p.vy; p.vy+=0.18;
+        p.life-=p.decay;
+        if (p.life<=0) particles.splice(i,1);
     }
 }
 function drawParticles() {
     for (const p of particles) {
-        ctx.globalAlpha = p.life;
-        ctx.fillStyle = p.color;
+        ctx.globalAlpha=p.life;
+        ctx.fillStyle=p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+        ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);
         ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha=1;
 }
 
-// ---- かわいいキャラクター描画 ----
-function drawStar(x, y, pts, ro, ri) {
+/* ---- KAWAII CHARACTER ---- */
+function drawStar(x,y,pts,ro,ri) {
     ctx.beginPath();
-    for (let i = 0; i < pts * 2; i++) {
-        const r = i % 2 === 0 ? ro : ri;
-        const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
-        i === 0 ? ctx.moveTo(x + Math.cos(a)*r, y + Math.sin(a)*r)
-                : ctx.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r);
+    for(let i=0;i<pts*2;i++){
+        const r=i%2===0?ro:ri;
+        const a=(i/(pts*2))*Math.PI*2-Math.PI/2;
+        i===0?ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r):ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r);
     }
-    ctx.closePath();
-    ctx.fill();
+    ctx.closePath(); ctx.fill();
 }
-
-function drawStarEye(x, y, r) {
-    // 白目
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.ellipse(x, y, r, r * 1.15, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // 星型の瞳
-    ctx.fillStyle = '#334ecc';
-    drawStar(x, y, 5, r * 0.72, r * 0.36);
-    // キラッとハイライト
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(x - r * 0.28, y - r * 0.28, r * 0.28, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + r * 0.2, y - r * 0.1, r * 0.12, 0, Math.PI * 2);
-    ctx.fill();
+function drawStarEye(x,y,r) {
+    ctx.fillStyle='white'; ctx.beginPath(); ctx.ellipse(x,y,r,r*1.15,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#334ecc'; drawStar(x,y,5,r*0.72,r*0.36);
+    ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(x-r*0.28,y-r*0.28,r*0.28,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+r*0.2,y-r*0.1,r*0.12,0,Math.PI*2); ctx.fill();
 }
-
-function drawBonusChar(cx, cy) {
-    if (bonusCharTimer <= 0) return;
+function drawBonusChar(cx,cy) {
+    if (bonusCharTimer<=0) return;
     bonusCharTimer--;
-
-    const elapsed = 130 - bonusCharTimer;
-    const t       = bonusCharTimer;
-
-    // --- スケール・透明度アニメーション ---
-    let scale = 1, alpha = 1;
-    if (elapsed < 18) {
-        const p = elapsed / 18;
-        scale = p < 0.65 ? (p / 0.65) * 1.3 : 1.3 - ((p - 0.65) / 0.35) * 0.3;
-    } else if (t < 22) {
-        alpha = t / 22;
-        scale = alpha;
-    }
-    const bob = Math.sin(elapsed * 0.18) * 5;
-
-    // --- 表示位置：画面右寄り、はみ出ないよう調整 ---
-    const HR  = 26;   // 頭の半径
-    const charX = Math.min(cx + 145, canvas.width - HR * 3 - 10);
-    const charY = cy + bob;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.translate(charX, charY);
-    ctx.scale(scale, scale);
-
-    // ===== 吹き出し =====
-    ctx.fillStyle = '#fffde7';
-    ctx.strokeStyle = '#ffd740';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(-52, -HR - 52, 104, 34, 8);
-    ctx.fill();
-    ctx.stroke();
-    // 吹き出し三角
-    ctx.fillStyle = '#fffde7';
-    ctx.beginPath();
-    ctx.moveTo(-7, -HR - 18); ctx.lineTo(7, -HR - 18); ctx.lineTo(0, -HR - 7);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#ffd740'; ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-7, -HR - 18); ctx.lineTo(0, -HR - 7); ctx.lineTo(7, -HR - 18);
-    ctx.stroke();
-    // 吹き出しテキスト
-    ctx.fillStyle = '#e65100';
-    ctx.font = 'bold 13px -apple-system';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🔥 BONUS! +1', 0, -HR - 35);
-
-    // ===== 猫耳（左）=====
-    ctx.fillStyle = '#ffb3c6';
-    ctx.beginPath();
-    ctx.moveTo(-HR + 3, -HR + 6);
-    ctx.lineTo(-HR - 10, -HR - 22);
-    ctx.lineTo(-HR + 16, -HR - 6);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ff6b8a';
-    ctx.beginPath();
-    ctx.moveTo(-HR + 5, -HR + 2);
-    ctx.lineTo(-HR - 4, -HR - 14);
-    ctx.lineTo(-HR + 11, -HR - 3);
-    ctx.closePath(); ctx.fill();
-
-    // ===== 猫耳（右）=====
-    ctx.fillStyle = '#ffb3c6';
-    ctx.beginPath();
-    ctx.moveTo(HR - 3, -HR + 6);
-    ctx.lineTo(HR + 10, -HR - 22);
-    ctx.lineTo(HR - 16, -HR - 6);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#ff6b8a';
-    ctx.beginPath();
-    ctx.moveTo(HR - 5, -HR + 2);
-    ctx.lineTo(HR + 4, -HR - 14);
-    ctx.lineTo(HR - 11, -HR - 3);
-    ctx.closePath(); ctx.fill();
-
-    // ===== 顔 =====
-    const faceG = ctx.createRadialGradient(-4, -6, 2, 0, 0, HR);
-    faceG.addColorStop(0, '#fff8f4');
-    faceG.addColorStop(1, '#ffd5c8');
-    ctx.beginPath();
-    ctx.arc(0, 0, HR, 0, Math.PI * 2);
-    ctx.fillStyle = faceG;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(200,100,80,0.2)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // ===== 髪 =====
-    ctx.fillStyle = '#3d1f00';
-    // 上の髪
-    ctx.beginPath();
-    ctx.arc(0, -HR * 0.15, HR * 1.04, Math.PI * 1.08, Math.PI * 1.92);
-    ctx.fill();
-    // 前髪
-    ctx.beginPath();
-    ctx.ellipse(-10, -HR * 0.82, 9, 7, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(8, -HR * 0.88, 8, 6, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-1, -HR * 0.94, 7, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // 髪のツヤ
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.beginPath();
-    ctx.ellipse(-7, -HR * 0.7, 7, 3.5, -0.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ===== 目 =====
-    drawStarEye(-10, 1, 7);
-    drawStarEye(10, 1, 7);
-
-    // ===== ほっぺ =====
-    ctx.globalAlpha = alpha * 0.45;
-    ctx.fillStyle = '#ff7096';
-    ctx.beginPath();
-    ctx.ellipse(-16, 10, 8, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(16, 10, 8, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = alpha;
-
-    // ===== 口（満面の笑み）=====
-    ctx.strokeStyle = '#c04050';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.arc(0, 13, 9, 0.15, Math.PI - 0.15);
-    ctx.stroke();
-    // 舌
-    ctx.fillStyle = '#ff8090';
-    ctx.beginPath();
-    ctx.arc(0, 20, 5, 0, Math.PI);
-    ctx.fill();
-    // 歯
-    ctx.fillStyle = 'white';
-    ctx.fillRect(-8, 13, 16, 5);
-
-    // ===== 体（ワンピース）=====
-    ctx.fillStyle = '#ff7eb3';
-    ctx.beginPath();
-    ctx.roundRect(-15, HR - 2, 30, 26, [4, 4, 8, 8]);
-    ctx.fill();
-    // 胸の白いリボン
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath();
-    ctx.moveTo(-5, HR + 2); ctx.lineTo(5, HR + 2);
-    ctx.lineTo(3, HR + 9); ctx.lineTo(-3, HR + 9);
-    ctx.closePath(); ctx.fill();
-
-    // ===== 腕（万歳！）=====
-    ctx.strokeStyle = '#ffd5c8';
-    ctx.lineWidth = 9;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-13, HR + 4);
-    ctx.quadraticCurveTo(-32, HR - 6, -28, HR - 20);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(13, HR + 4);
-    ctx.quadraticCurveTo(32, HR - 6, 28, HR - 20);
-    ctx.stroke();
-    // 手
-    ctx.fillStyle = '#ffd5c8';
-    ctx.beginPath(); ctx.arc(-28, HR - 22, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(28, HR - 22, 6, 0, Math.PI * 2); ctx.fill();
-
-    // ===== 周囲の絵文字（ハート・星）=====
-    const emojis = ['💕', '⭐', '✨', '💖', '🌟', '💫'];
-    emojis.forEach((em, i) => {
-        const angle = (i / emojis.length) * Math.PI * 2 + elapsed * 0.025;
-        const rx = 68 + Math.sin(elapsed * 0.08 + i) * 8;
-        const ry = 52;
-        const ex = Math.cos(angle) * rx;
-        const ey = Math.sin(angle) * ry - 10;
-        ctx.globalAlpha = alpha * (0.7 + Math.sin(elapsed * 0.12 + i * 1.3) * 0.3);
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(em, ex, ey);
+    const elapsed=130-bonusCharTimer, t=bonusCharTimer;
+    let scale=1, alpha=1;
+    if (elapsed<18){const p=elapsed/18;scale=p<0.65?(p/0.65)*1.3:1.3-((p-0.65)/0.35)*0.3;}
+    else if (t<22){alpha=t/22;scale=alpha;}
+    const bob=Math.sin(elapsed*0.18)*5;
+    const HR=26;
+    const charX=Math.min(cx+145,canvas.width-HR*3-10);
+    const charY=cy+bob;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.translate(charX,charY); ctx.scale(scale,scale);
+    // speech bubble
+    ctx.fillStyle='#fffde7'; ctx.strokeStyle='#ffd740'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(-52,-HR-52,104,34,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#fffde7'; ctx.beginPath(); ctx.moveTo(-7,-HR-18); ctx.lineTo(7,-HR-18); ctx.lineTo(0,-HR-7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#e65100'; ctx.font='bold 13px -apple-system'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🔥 BONUS! +1',0,-HR-35);
+    // cat ears
+    ctx.fillStyle='#ffb3c6';
+    ctx.beginPath(); ctx.moveTo(-HR+3,-HR+6); ctx.lineTo(-HR-10,-HR-22); ctx.lineTo(-HR+16,-HR-6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ff6b8a';
+    ctx.beginPath(); ctx.moveTo(-HR+5,-HR+2); ctx.lineTo(-HR-4,-HR-14); ctx.lineTo(-HR+11,-HR-3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ffb3c6';
+    ctx.beginPath(); ctx.moveTo(HR-3,-HR+6); ctx.lineTo(HR+10,-HR-22); ctx.lineTo(HR-16,-HR-6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#ff6b8a';
+    ctx.beginPath(); ctx.moveTo(HR-5,-HR+2); ctx.lineTo(HR+4,-HR-14); ctx.lineTo(HR-11,-HR-3); ctx.closePath(); ctx.fill();
+    // face
+    const faceG=ctx.createRadialGradient(-4,-6,2,0,0,HR);
+    faceG.addColorStop(0,'#fff8f4'); faceG.addColorStop(1,'#ffd5c8');
+    ctx.beginPath(); ctx.arc(0,0,HR,0,Math.PI*2); ctx.fillStyle=faceG; ctx.fill();
+    // hair
+    ctx.fillStyle='#3d1f00';
+    ctx.beginPath(); ctx.arc(0,-HR*0.15,HR*1.04,Math.PI*1.08,Math.PI*1.92); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-10,-HR*0.82,9,7,-0.3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(8,-HR*0.88,8,6,0.2,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-1,-HR*0.94,7,5,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.beginPath(); ctx.ellipse(-7,-HR*0.7,7,3.5,-0.5,0,Math.PI*2); ctx.fill();
+    // eyes
+    drawStarEye(-10,1,7); drawStarEye(10,1,7);
+    // cheeks
+    ctx.globalAlpha=alpha*0.45; ctx.fillStyle='#ff7096';
+    ctx.beginPath(); ctx.ellipse(-16,10,8,5,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(16,10,8,5,0,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=alpha;
+    // mouth
+    ctx.strokeStyle='#c04050'; ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(0,13,9,0.15,Math.PI-0.15); ctx.stroke();
+    ctx.fillStyle='#ff8090'; ctx.beginPath(); ctx.arc(0,20,5,0,Math.PI); ctx.fill();
+    ctx.fillStyle='white'; ctx.fillRect(-8,13,16,5);
+    // body
+    ctx.fillStyle='#ff7eb3'; ctx.beginPath(); ctx.roundRect(-15,HR-2,30,26,[4,4,8,8]); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.moveTo(-5,HR+2); ctx.lineTo(5,HR+2); ctx.lineTo(3,HR+9); ctx.lineTo(-3,HR+9); ctx.closePath(); ctx.fill();
+    // arms
+    ctx.strokeStyle='#ffd5c8'; ctx.lineWidth=9; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-13,HR+4); ctx.quadraticCurveTo(-32,HR-6,-28,HR-20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(13,HR+4); ctx.quadraticCurveTo(32,HR-6,28,HR-20); ctx.stroke();
+    ctx.fillStyle='#ffd5c8';
+    ctx.beginPath(); ctx.arc(-28,HR-22,6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(28,HR-22,6,0,Math.PI*2); ctx.fill();
+    // emojis
+    ['💕','⭐','✨','💖','🌟','💫'].forEach((em,i)=>{
+        const angle=(i/6)*Math.PI*2+elapsed*0.025;
+        const ex=Math.cos(angle)*(68+Math.sin(elapsed*0.08+i)*8);
+        const ey=Math.sin(angle)*52-10;
+        ctx.globalAlpha=alpha*(0.7+Math.sin(elapsed*0.12+i*1.3)*0.3);
+        ctx.font='14px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(em,ex,ey);
     });
-    ctx.globalAlpha = alpha;
-
+    ctx.globalAlpha=alpha;
     ctx.restore();
 }
 
-// ---- タイマーリング（キャンバス上の大きな円形タイマー）----
-function drawTimerRing(cx, cy) {
-    if (state !== 'playing' && state !== 'result_pending') return;
-    const r = AREOLA_R + 55;
-    const pct = timeLeft / TIME_LIMIT;
-    const startA = -Math.PI / 2;
-    const endA   = startA + pct * Math.PI * 2;
-
-    // 背景リング
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.lineWidth = 6;
-    ctx.stroke();
-
-    // 残り時間リング
-    const hue = pct > 0.3 ? 140 : pct > 0.15 ? 40 : 0;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, startA, endA);
-    ctx.strokeStyle = `hsl(${hue},100%,60%)`;
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.stroke();
+/* ---- TIMER RING ---- */
+function drawTimerRing(cx,cy) {
+    if (gameState!=='playing'&&gameState!=='result_pending') return;
+    const cfg=currentDiff();
+    const r=AREOLA_R+55, pct=timeLeft/cfg.time;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=6; ctx.stroke();
+    const hue=pct>0.3?140:pct>0.15?40:0;
+    ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+pct*Math.PI*2);
+    ctx.strokeStyle=`hsl(${hue},100%,60%)`; ctx.lineWidth=6; ctx.lineCap='round'; ctx.stroke();
 }
 
-// ---- メイン描画 ----
+/* ---- MAIN DRAW ---- */
 function drawScene(now) {
-    const cx = canvas.width/2, cy = canvas.height/2;
+    const cx=canvas.width/2, cy=canvas.height/2;
     animFrame++;
-
     updateTimer(now);
 
-    // 背景
-    ctx.fillStyle = '#0f0c29';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle='#0f0c29';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // フラッシュ
-    if (flashAlpha > 0) {
-        ctx.fillStyle = flashColor;
-        ctx.globalAlpha = flashAlpha * 0.3;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.globalAlpha = 1;
-        flashAlpha = Math.max(0, flashAlpha - 0.05);
+    if (flashAlpha>0) {
+        ctx.fillStyle=flashColor;
+        ctx.globalAlpha=flashAlpha*0.3;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.globalAlpha=1;
+        flashAlpha=Math.max(0,flashAlpha-0.05);
     }
 
-    // タイマーリング
-    drawTimerRing(cx, cy);
+    drawTimerRing(cx,cy);
 
-    // 乳輪
-    const g1 = ctx.createRadialGradient(cx-8, cy-8, 5, cx, cy, AREOLA_R);
-    g1.addColorStop(0, '#c8855a');
-    g1.addColorStop(0.6, '#a66040');
-    g1.addColorStop(1, '#7a4020');
-    ctx.beginPath();
-    ctx.arc(cx, cy, AREOLA_R, 0, Math.PI*2);
-    ctx.fillStyle = g1;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(60,20,0,0.6)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    // Areola
+    const g1=ctx.createRadialGradient(cx-8,cy-8,5,cx,cy,AREOLA_R);
+    g1.addColorStop(0,'#c8855a'); g1.addColorStop(0.6,'#a66040'); g1.addColorStop(1,'#7a4020');
+    ctx.beginPath(); ctx.arc(cx,cy,AREOLA_R,0,Math.PI*2);
+    ctx.fillStyle=g1; ctx.fill();
+    ctx.strokeStyle='rgba(60,20,0,0.6)'; ctx.lineWidth=3; ctx.stroke();
 
-    // 乳首
-    const pulse = Math.sin(animFrame * 0.06) * 2;
-    const gN = ctx.createRadialGradient(cx-6, cy-6, 2, cx, cy, NIPPLE_R+pulse);
-    gN.addColorStop(0, '#f0a888');
-    gN.addColorStop(0.4, '#cc6040');
-    gN.addColorStop(1, '#8b2a10');
-    ctx.beginPath();
-    ctx.arc(cx, cy, NIPPLE_R+pulse, 0, Math.PI*2);
-    ctx.fillStyle = gN;
-    ctx.fill();
+    // Nipple (wobbles in extreme)
+    const wobble = (currentDiffKey==='extreme'&&gameState==='playing') ?
+        Math.sin(animFrame*0.07)*3 : 0;
+    const wobbleY = (currentDiffKey==='extreme'&&gameState==='playing') ?
+        Math.cos(animFrame*0.05)*3 : 0;
+    const pulse=Math.sin(animFrame*0.06)*2;
+    const nx=cx+wobble, ny=cy+wobbleY;
+    const gN=ctx.createRadialGradient(nx-6,ny-6,2,nx,ny,NIPPLE_R+pulse);
+    gN.addColorStop(0,'#f0a888'); gN.addColorStop(0.4,'#cc6040'); gN.addColorStop(1,'#8b2a10');
+    ctx.beginPath(); ctx.arc(nx,ny,NIPPLE_R+pulse,0,Math.PI*2);
+    ctx.fillStyle=gN; ctx.fill();
+    ctx.beginPath(); ctx.arc(nx-7,ny-7,8,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,200,160,0.2)'; ctx.fill();
 
-    // ハイライト
-    ctx.beginPath();
-    ctx.arc(cx-7, cy-7, 8, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,200,160,0.2)';
-    ctx.fill();
+    // NG zone
+    const cfg=currentDiff();
+    ctx.beginPath(); ctx.arc(cx,cy,cfg.trackMin,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,60,60,0.6)'; ctx.lineWidth=2;
+    ctx.setLineDash([4,5]); ctx.stroke(); ctx.setLineDash([]);
 
-    // NG ゾーン
-    ctx.beginPath();
-    ctx.arc(cx, cy, TRACK_MIN, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(255,60,60,0.6)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 5]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 周回数を中央に薄く表示
-    if (state === 'playing' || state === 'result_pending') {
-        ctx.fillStyle = 'rgba(255,255,255,0.06)';
-        ctx.font = `bold ${AREOLA_R}px -apple-system`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(lapCount, cx, cy);
-        ctx.textBaseline = 'alphabetic';
+    // Lap count ghost
+    if (gameState==='playing'||gameState==='result_pending') {
+        ctx.fillStyle='rgba(255,255,255,0.06)';
+        ctx.font=`bold ${AREOLA_R}px -apple-system`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(lapCount,cx,cy); ctx.textBaseline='alphabetic';
     }
 
-    // 軌跡
-    if (path.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(path[0].x, path[0].y);
-        for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
-        ctx.strokeStyle = 'rgba(120,200,255,0.75)';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-
-        const last = path[path.length-1];
-        ctx.beginPath();
-        ctx.arc(last.x, last.y, 9, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(120,200,255,0.9)';
-        ctx.fill();
+    // Trail
+    if (path.length>=2) {
+        ctx.beginPath(); ctx.moveTo(path[0].x,path[0].y);
+        for (let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
+        ctx.strokeStyle='rgba(120,200,255,0.75)'; ctx.lineWidth=4;
+        ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke();
+        const last=path[path.length-1];
+        ctx.beginPath(); ctx.arc(last.x,last.y,9,0,Math.PI*2);
+        ctx.fillStyle='rgba(120,200,255,0.9)'; ctx.fill();
     }
 
-    // パーティクル
-    updateParticles();
-    drawParticles();
+    updateParticles(); drawParticles();
+    drawBonusChar(cx,cy);
 
-    // ボーナスキャラクター
-    drawBonusChar(cx, cy);
-
-    // アイドル時の説明
-    if (state === 'idle') {
-        ctx.fillStyle = 'rgba(255,255,255,0.55)';
-        ctx.font = '16px -apple-system';
-        ctx.textAlign = 'center';
-        ctx.fillText('乳首に触れずに何周回れるか挑戦！', cx, cy - AREOLA_R - 75);
-        ctx.fillText('タッチすると -3秒ペナルティ', cx, cy - AREOLA_R - 50);
+    // Idle instruction
+    if (gameState==='idle') {
+        ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='16px -apple-system';
+        ctx.textAlign='center';
+        ctx.fillText('乳首に触れずに何周回れるか挑戦！',cx,cy-AREOLA_R-75);
+        ctx.fillText('タッチすると時間ペナルティ',cx,cy-AREOLA_R-50);
     }
 }
 
-function loop(now) {
-    drawScene(now);
-    requestAnimationFrame(loop);
-}
+function loop(now) { drawScene(now); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
+
+/* ================================================
+   BUTTON EVENT LISTENERS
+   ================================================ */
+
+// HOME
+document.getElementById('btn-play').addEventListener('click', () => showDifficultyScreen());
+document.getElementById('btn-play').addEventListener('touchstart', e=>{e.preventDefault();showDifficultyScreen();},{passive:false});
+
+document.getElementById('btn-daily').addEventListener('click', () => showDailyScreen());
+document.getElementById('btn-daily').addEventListener('touchstart', e=>{e.preventDefault();showDailyScreen();},{passive:false});
+
+document.getElementById('btn-achievements').addEventListener('click', ()=>showScreen('achievements'));
+document.getElementById('btn-achievements').addEventListener('touchstart', e=>{e.preventDefault();showScreen('achievements');},{passive:false});
+
+document.getElementById('btn-stats').addEventListener('click', ()=>showScreen('stats'));
+document.getElementById('btn-stats').addEventListener('touchstart', e=>{e.preventDefault();showScreen('stats');},{passive:false});
+
+document.getElementById('sound-btn').addEventListener('click', ()=>{
+    save.soundOn = !save.soundOn;
+    refreshHome();
+    if (save.soundOn) { playTone(523,0.1); }
+});
+
+// DIFFICULTY
+document.querySelectorAll('.diff-card').forEach(card => {
+    const handler = () => startGame(card.dataset.diff, false, {});
+    card.addEventListener('click', handler);
+    card.addEventListener('touchstart', e=>{e.preventDefault();handler();},{passive:false});
+});
+document.getElementById('diff-back').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('diff-back').addEventListener('touchstart', e=>{e.preventDefault();showScreen('home');},{passive:false});
+
+// DAILY
+document.getElementById('daily-back').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('daily-back').addEventListener('touchstart', e=>{e.preventDefault();showScreen('home');},{passive:false});
+document.getElementById('btn-daily-start').addEventListener('click', ()=>{
+    const daily = getDailyChallenge();
+    startGame('normal', true, daily.mods);
+});
+document.getElementById('btn-daily-start').addEventListener('touchstart', e=>{
+    e.preventDefault();
+    const daily = getDailyChallenge();
+    startGame('normal', true, daily.mods);
+},{passive:false});
+
+// RESULT
+document.getElementById('btn-retry').addEventListener('click', ()=>startGame(currentDiffKey, isDailyGame, dailyMods));
+document.getElementById('btn-retry').addEventListener('touchstart', e=>{e.preventDefault();startGame(currentDiffKey,isDailyGame,dailyMods);},{passive:false});
+document.getElementById('btn-menu').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('btn-menu').addEventListener('touchstart', e=>{e.preventDefault();showScreen('home');},{passive:false});
+document.getElementById('btn-share').addEventListener('click', ()=>{
+    const totalScore = lapCount + bonusCount;
+    const msg = `乳首トレースゲームで ${totalScore}ポイント達成！(${DIFFS[currentDiffKey].label}) Lv.${getLevelFromXP(save.totalXP)} #まわれ`;
+    nativeSend('share', { text:msg, score:totalScore, difficulty:currentDiffKey, level:getLevelFromXP(save.totalXP) });
+    // Fallback for browser
+    if (navigator.share) navigator.share({title:'まわれ！タイムアタック', text:msg}).catch(()=>{});
+});
+document.getElementById('btn-leaderboard').addEventListener('click', ()=>{
+    nativeSend('gameCenter', { action:'showLeaderboard', difficulty:currentDiffKey });
+});
+
+// ACHIEVEMENTS back
+document.getElementById('ach-back').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('ach-back').addEventListener('touchstart', e=>{e.preventDefault();showScreen('home');},{passive:false});
+
+// STATS back
+document.getElementById('stats-back').addEventListener('click', ()=>showScreen('home'));
+document.getElementById('stats-back').addEventListener('touchstart', e=>{e.preventDefault();showScreen('home');},{passive:false});
+
+// AD REWARD BUTTON
+adBtn.addEventListener('click', ()=>{
+    nativeSend('ads', { action:'showRewardAd' });
+    // If no native, give reward anyway (web testing)
+    if (!window.webkit?.messageHandlers?.ads) {
+        window.onAdRewarded();
+    }
+});
+adBtn.addEventListener('touchstart', e=>{e.preventDefault();adBtn.click();},{passive:false});
+
+/* ================================================
+   INIT
+   ================================================ */
+refreshHome();
+// Request Game Center auth on load
+nativeSend('gameCenter', { action:'authenticate' });
+// Request notification permission (handled in Swift, this is a signal)
+setTimeout(()=>nativeSend('notifications', { action:'requestPermission' }), 3000);
 </script>
 </body>
 </html>
