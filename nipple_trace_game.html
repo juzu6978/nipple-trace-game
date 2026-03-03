@@ -629,7 +629,7 @@ const NIPPLE_R = 28, AREOLA_R = 72;
    DAILY CHALLENGES
    ================================================ */
 const DAILY_TYPES = [
-    { name:'タイムラッシュ',   icon:'⚡', desc:'制限時間20秒！でもボーナスは2倍！', bonus:'🌟 ボーナス2倍', mods:{time:20, xpMult:2.5} },
+    { name:'タイムラッシュ',   icon:'⚡', desc:'制限時間20秒！周回ごとに+2秒回復！ボーナスは2倍！', bonus:'🌟 周回+2秒 / ボーナス2倍', mods:{time:20, xpMult:2.5, bonusMult:2, lapTimeBonus:2} },
     { name:'狭軌道',           icon:'🎯', desc:'コースが超狭い！ちょっとでも触れると即ペナルティ', bonus:'', mods:{trackMin:34} },
     { name:'エンデュランス',   icon:'🏃', desc:'60秒の持久戦！集中力が試される', bonus:'🌟 超大量XP', mods:{time:60, xpMult:2.0} },
     { name:'スーパーコンボ',   icon:'🔥', desc:'2連続クリアでボーナス発生！', bonus:'🌟 コンボしやすい', mods:{comboBon:2} },
@@ -1067,9 +1067,16 @@ function processInput(pos) {
         lapCount = newLapCount;
         consecutiveLaps++;
 
+        // 周回ごとに時間回復（タイムラッシュ等）
+        if (cfg.lapTimeBonus) {
+            timeLeft = Math.min(cfg.time, timeLeft + cfg.lapTimeBonus);
+            showFloatText(`+${cfg.lapTimeBonus}秒⏱`, '#00e5ff');
+        }
+
         if (consecutiveLaps % cfg.comboBon === 0) {
-            bonusCount++;
-            showBonusPop();
+            const bonusAdd = cfg.bonusMult || 1;
+            bonusCount += bonusAdd;
+            showBonusPop(bonusAdd);
             playBonusSound();
             nativeSend('haptic', {type:'bonus'});
         }
@@ -1092,7 +1099,7 @@ function processInput(pos) {
 
 /* ---- POPUP HELPERS ---- */
 function showLapPop()       { lapPop.classList.remove('pop'); void lapPop.offsetWidth; lapPop.classList.add('pop'); }
-function showBonusPop()     { bonusPop.classList.remove('show'); void bonusPop.offsetWidth; bonusPop.classList.add('show'); bonusCharTimer=130; }
+function showBonusPop(n=1)  { bonusPop.textContent=`🔥 BONUS +${n}!`; bonusPop.classList.remove('show'); void bonusPop.offsetWidth; bonusPop.classList.add('show'); bonusCharTimer=130; }
 function showPenaltyPop(txt){ penaltyPop.textContent=txt; penaltyPop.classList.remove('show'); void penaltyPop.offsetWidth; penaltyPop.classList.add('show'); }
 function showLevelupPop()   { levelupPop.classList.remove('show'); void levelupPop.offsetWidth; levelupPop.classList.add('show'); }
 function showAchievementToast(id) {
