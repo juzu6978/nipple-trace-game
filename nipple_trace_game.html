@@ -23,6 +23,13 @@
             overflow-y:auto;
         }
         .screen.active { opacity:1; pointer-events:all; }
+        /* スクロールが必要な画面は上揃え（justify-content:centerだと上端が切れてボタン押せなくなる） */
+        #screen-achievements,
+        #screen-stats,
+        #screen-difficulty,
+        #screen-daily {
+            justify-content: flex-start;
+        }
         .screen-inner {
             width:100%; max-width:400px;
             padding:16px 20px calc(env(safe-area-inset-bottom,16px) + 16px);
