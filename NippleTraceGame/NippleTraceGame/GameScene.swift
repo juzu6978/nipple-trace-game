@@ -47,25 +47,25 @@ final class GameScene: SKScene {
     private(set) var isDaily: Bool = false
 
     // ─── State ───────────────────────────────────────────
-    private var gameActive    = false
-    private var timeLeft      = 30.0
-    private var lapCount      = 0
-    private var totalAngle    = 0.0
+    private var gameActive     = false
+    private var timeLeft       = 30.0
+    private var lapCount       = 0
+    private var lapAngleAccum  = 0.0   // resets to 0 on each touch lift; ±2π = 1 lap
     private var lastAngle: Double?
     private var consecutiveLaps = 0
-    private var bonusCount    = 0
-    private var penaltyCount  = 0
+    private var bonusCount     = 0
+    private var penaltyCount   = 0
     private var penaltyCooldown = 0
-    private var touching      = false
+    private var touching       = false
     private var trailPoints: [CGPoint] = []
-    private var animFrame     = 0
+    private var animFrame      = 0
     private var flashAlpha: CGFloat = 0
-    private var flashColor    = UIColor.white
+    private var flashColor     = UIColor.white
     private var particles: [Particle] = []
     private var bonusCharTimer = 0
-    private var adUsed        = false
+    private var adUsed         = false
     private var lastUpdateTime: TimeInterval = 0
-    private var nippleOffset  = CGPoint.zero  // EXTREME wobble
+    private var nippleOffset   = CGPoint.zero  // EXTREME wobble
 
     // ─── Nodes ───────────────────────────────────────────
     private var bgNode:         SKSpriteNode!
@@ -133,9 +133,6 @@ final class GameScene: SKScene {
         ngZoneNode.lineWidth = 2
         ngZoneNode.fillColor = .clear
         ngZoneNode.zPosition = 4
-        let dashPath = CGMutablePath()
-        dashPath.addArc(center: .zero, radius: 40, startAngle: 0, endAngle: CGFloat.pi * 2, clockwise: false)
-        // Dashes via lineDashPattern (set on the SKShapeNode's layer via UIBezierPath)
         ngZoneNode.path = makeDashedCirclePath(radius: 40)
         addChild(ngZoneNode)
 
@@ -180,7 +177,7 @@ final class GameScene: SKScene {
         gameActive      = true
         timeLeft        = config.time
         lapCount        = 0
-        totalAngle      = 0
+        lapAngleAccum   = 0
         lastAngle       = nil
         touching        = false
         trailPoints     = []
@@ -201,13 +198,29 @@ final class GameScene: SKScene {
         cursorNode.isHidden = true
         lapLabelNode.text = "0"
 
-        // Update NG zone radius to match config
         ngZoneNode.path = makeDashedCirclePath(radius: config.trackMin)
 
         updateTimerRingColor()
         notifyState()
         SoundManager.shared.playStart()
         HapticsManager.shared.playTap()
+    }
+
+    // MARK: - Pause / Resume / Cancel
+
+    func pauseGame() {
+        guard gameActive else { return }
+        self.isPaused = true
+    }
+
+    func resumeGame() {
+        self.isPaused = false
+        lastUpdateTime = 0  // Avoid dt spike after pause
+    }
+
+    func cancelGame() {
+        gameActive = false
+        self.isPaused = false
     }
 
     // MARK: - Touch Handling
@@ -235,7 +248,6 @@ final class GameScene: SKScene {
     // MARK: - Game Logic
 
     private func processTouch(_ pos: CGPoint) {
-        // pos is in scene coords with (0,0) at center (anchorPoint = 0.5)
         let nippleCenter = nippleOffset
         let dx = pos.x - nippleCenter.x
         let dy = pos.y - nippleCenter.y
@@ -257,55 +269,58 @@ final class GameScene: SKScene {
             return
         }
 
+        // Limit trail length for performance
         trailPoints.append(pos)
+        if trailPoints.count > 20 { trailPoints.removeFirst() }
 
-        // Angle tracking (SpriteKit Y-up: atan2 works identically to HTML canvas)
+        // Angle tracking
         let angle = atan2(Double(dy), Double(dx))
         if let last = lastAngle {
             var delta = angle - last
             if delta >  Double.pi { delta -= 2 * Double.pi }
             if delta < -Double.pi { delta += 2 * Double.pi }
-            totalAngle += delta
+            lapAngleAccum += delta
+
+            // Lap detection: ±2π = 1 full lap (direction-independent)
+            if abs(lapAngleAccum) >= 2 * Double.pi {
+                lapCount += 1
+                let sign = lapAngleAccum > 0 ? 1.0 : -1.0
+                lapAngleAccum -= sign * 2 * Double.pi
+                consecutiveLaps += 1
+
+                // Time recovery
+                if config.lapTimeBonus > 0 {
+                    timeLeft = min(config.time, timeLeft + config.lapTimeBonus)
+                    GameSceneEvents.shared.send(.timeRecovery(seconds: config.lapTimeBonus))
+                }
+
+                // Combo bonus
+                if consecutiveLaps % config.comboBon == 0 {
+                    let bonusAdd = config.bonusMult
+                    bonusCount += bonusAdd
+                    SoundManager.shared.playBonus()
+                    HapticsManager.shared.playBonus()
+                    GameSceneEvents.shared.send(.bonus(amount: bonusAdd))
+                    startBonusChar()
+                }
+
+                GameSceneEvents.shared.send(.lap(combo: consecutiveLaps))
+                SoundManager.shared.playLap()
+                HapticsManager.shared.playLap()
+                flashColor = UIColor(red: 0, green: 0.9, blue: 0.42, alpha: 1)
+                flashAlpha = 0.7
+                spawnParticles(at: .zero, count: 6)
+                lapLabelNode.text = "\(lapCount)"
+                trailPoints = []
+            }
         }
         lastAngle = angle
-
-        // Lap detection
-        let newLapCount = Int(abs(totalAngle) / (2 * Double.pi))
-        if newLapCount > lapCount {
-            lapCount = newLapCount
-            consecutiveLaps += 1
-
-            // Time recovery (タイムラッシュ etc.)
-            if config.lapTimeBonus > 0 {
-                timeLeft = min(config.time, timeLeft + config.lapTimeBonus)
-                GameSceneEvents.shared.send(.timeRecovery(seconds: config.lapTimeBonus))
-            }
-
-            // Combo bonus
-            if consecutiveLaps % config.comboBon == 0 {
-                let bonusAdd = config.bonusMult
-                bonusCount += bonusAdd
-                SoundManager.shared.playBonus()
-                HapticsManager.shared.playBonus()
-                GameSceneEvents.shared.send(.bonus(amount: bonusAdd))
-                startBonusChar()
-            }
-
-            GameSceneEvents.shared.send(.lap(combo: consecutiveLaps))
-            SoundManager.shared.playLap()
-            HapticsManager.shared.playLap()
-            flashColor = UIColor(red: 0, green: 0.9, blue: 0.42, alpha: 1)
-            flashAlpha = 0.7
-            spawnParticles(at: .zero, count: 25)
-            lapLabelNode.text = "\(lapCount)"
-            trailPoints = []
-        }
 
         notifyState()
     }
 
     private func resetCurrentLap() {
-        totalAngle = Double(lapCount) * 2 * Double.pi
+        lapAngleAccum = 0   // Always reset to 0, direction-independent
         lastAngle  = nil
         trailPoints = []
         trailNode.path = nil
@@ -321,7 +336,6 @@ final class GameScene: SKScene {
         lastUpdateTime = currentTime
         animFrame += 1
 
-        // Timer
         if penaltyCooldown > 0 { penaltyCooldown -= 1 }
         timeLeft = max(0, timeLeft - dt)
 
@@ -363,7 +377,6 @@ final class GameScene: SKScene {
     private func updateTimerRing() {
         let pct    = CGFloat(timeLeft / config.time)
         let r      = AREOLA_R + 55
-        // SpriteKit Y-up: top = π/2, clockwise = decreasing angle
         let start  = CGFloat.pi / 2
         let end    = start - pct * 2 * CGFloat.pi
         let path   = CGMutablePath()
@@ -452,7 +465,7 @@ final class GameScene: SKScene {
             cn.zPosition = 10
             addChild(cn)
         }
-        spawnParticles(at: .zero, count: 40, big: true)
+        spawnParticles(at: .zero, count: 10, big: true)
     }
 
     private func updateBonusChar() {
@@ -481,7 +494,6 @@ final class GameScene: SKScene {
         }
     }
 
-    /// UIKit で可愛いキャラを描いて SKSpriteNode に変換
     private func makeBonusCharNode() -> SKSpriteNode? {
         let imgSize = CGSize(width: 110, height: 160)
         let renderer = UIGraphicsImageRenderer(size: imgSize)
@@ -498,7 +510,7 @@ final class GameScene: SKScene {
         let cy = size.height * 0.52
         let HR: CGFloat = 26
 
-        // ── 吹き出し ──
+        // 吹き出し
         let bubbleRect = CGRect(x: cx - 52, y: cy - HR - 52, width: 104, height: 34)
         UIColor(red: 1, green: 0.99, blue: 0.88, alpha: 1).setFill()
         UIBezierPath(roundedRect: bubbleRect, cornerRadius: 8).fill()
@@ -517,7 +529,7 @@ final class GameScene: SKScene {
         ]
         "🔥 BONUS!".draw(at: CGPoint(x: cx - 30, y: cy - HR - 49), withAttributes: attrs)
 
-        // ── 猫耳 ──
+        // 猫耳
         func ear(flip: CGFloat) {
             let earPink = UIColor(red: 1, green: 0.70, blue: 0.78, alpha: 1)
             let earDark = UIColor(red: 1, green: 0.42, blue: 0.54, alpha: 1)
@@ -534,18 +546,18 @@ final class GameScene: SKScene {
         }
         ear(flip: -1); ear(flip: 1)
 
-        // ── 顔 ──
+        // 顔
         let faceColor = UIColor(red: 1, green: 0.84, blue: 0.78, alpha: 1)
         faceColor.setFill()
         UIBezierPath(ovalIn: CGRect(x: cx - HR, y: cy - HR, width: HR * 2, height: HR * 2)).fill()
 
-        // ── 髪 ──
+        // 髪
         ctx.setFillColor(UIColor(red: 0.24, green: 0.12, blue: 0, alpha: 1).cgColor)
         ctx.addArc(center: CGPoint(x: cx, y: cy - HR * 0.15), radius: HR * 1.04,
                    startAngle: .pi * 1.08, endAngle: .pi * 1.92, clockwise: false)
         ctx.fillPath()
 
-        // ── 目（星形） ──
+        // 目（星形）
         func starEye(ex: CGFloat, ey: CGFloat, r: CGFloat) {
             UIColor.white.setFill()
             UIBezierPath(ovalIn: CGRect(x: ex - r, y: ey - r * 1.15, width: r * 2, height: r * 2.3)).fill()
@@ -564,18 +576,18 @@ final class GameScene: SKScene {
         starEye(ex: cx - 10, ey: cy + 1, r: 7)
         starEye(ex: cx + 10, ey: cy + 1, r: 7)
 
-        // ── ほっぺ ──
+        // ほっぺ
         UIColor(red: 1, green: 0.44, blue: 0.59, alpha: 0.45).setFill()
         UIBezierPath(ovalIn: CGRect(x: cx - 24, y: cy + 5, width: 16, height: 10)).fill()
         UIBezierPath(ovalIn: CGRect(x: cx + 8,  y: cy + 5, width: 16, height: 10)).fill()
 
-        // ── 口 ──
+        // 口
         UIColor(red: 0.75, green: 0.25, blue: 0.31, alpha: 1).setStroke()
         let mouth = UIBezierPath(arcCenter: CGPoint(x: cx, y: cy + 13), radius: 9,
                                  startAngle: 0.15, endAngle: .pi - 0.15, clockwise: true)
         mouth.lineWidth = 2; mouth.lineCapStyle = .round; mouth.stroke()
 
-        // ── 体 ──
+        // 体
         UIColor(red: 1, green: 0.49, blue: 0.70, alpha: 1).setFill()
         UIBezierPath(roundedRect: CGRect(x: cx - 15, y: cy + HR - 2, width: 30, height: 26),
                      cornerRadius: 6).fill()
@@ -586,7 +598,7 @@ final class GameScene: SKScene {
     private func endGame() {
         guard gameActive else { return }
         gameActive = false
-        spawnParticles(at: .zero, count: 60, big: true)
+        spawnParticles(at: .zero, count: 15, big: true)
         SoundManager.shared.playGameOver()
 
         let save = SaveData.shared
@@ -626,28 +638,22 @@ final class GameScene: SKScene {
         }
     }
 
-    // MARK: - Ad Reward
+    // MARK: - Ad Reward (called from ResultView after game ends)
 
     func handleAdReward() {
-        guard gameActive && !adUsed else { return }
-        adUsed = true
-        timeLeft = min(config.time, timeLeft + 5)
-        flashColor = UIColor(red: 0, green: 0.90, blue: 1, alpha: 1)
-        flashAlpha = 0.5
-        GameSceneEvents.shared.send(.timeRecovery(seconds: 5))
+        // No-op during gameplay; kept for protocol compatibility
     }
 
     // MARK: - Notify State
 
     private func notifyState() {
-        let withinLap = abs(totalAngle) - Double(lapCount) * 2 * Double.pi
-        let progress  = min(withinLap / (2 * Double.pi), 1)
+        let progress = min(abs(lapAngleAccum) / (2 * Double.pi), 1)
         let state = GameSceneState(
             timeLeft:     timeLeft,
             score:        lapCount + bonusCount,
             lapProgress:  progress,
             timerDanger:  timeLeft <= 5,
-            showAdButton: timeLeft <= 10 && !adUsed && gameActive,
+            showAdButton: false,   // 広告はゲーム終了後のみ
             adUsed:       adUsed
         )
         DispatchQueue.main.async { [weak self] in
@@ -658,7 +664,6 @@ final class GameScene: SKScene {
     // MARK: - Helpers
 
     private func makeDashedCirclePath(radius: CGFloat) -> CGPath {
-        // Approximate dashes by drawing short arcs
         let path = CGMutablePath()
         let total: CGFloat = 2 * .pi
         let dashArc: CGFloat = 0.15

@@ -67,7 +67,6 @@ struct ContentView: View {
                     onMenu: { transition(to: .home) }
                 )
                 .id(gameID)
-                .ignoresSafeArea()
 
             case .result:
                 if let result = gameResult {

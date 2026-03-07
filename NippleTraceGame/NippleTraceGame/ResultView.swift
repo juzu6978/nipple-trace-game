@@ -10,6 +10,7 @@ struct ResultView: View {
 
     @ObservedObject private var save = SaveData.shared
     @State private var animateXP = false
+    @State private var adBonusWatched = false
 
     var body: some View {
         ZStack {
@@ -24,6 +25,7 @@ struct ResultView: View {
                     if !result.unlockedAchievements.isEmpty {
                         newAchievementsSection
                     }
+                    adBonusSection
                     actionButtons
                 }
                 .padding(.horizontal, 24)
@@ -195,6 +197,43 @@ struct ResultView: View {
         .padding(14)
         .background(Color.white.opacity(0.03))
         .cornerRadius(14)
+    }
+
+    // MARK: - Ad Bonus Section
+
+    private var adBonusSection: some View {
+        Group {
+            if adBonusWatched {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(Color(red: 0.41, green: 0.94, blue: 0.68))
+                    Text("XP ×2 ボーナス獲得！")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color(red: 0.41, green: 0.94, blue: 0.68))
+                }
+                .padding(.vertical, 10)
+            } else if result.xpEarned > 0 {
+                Button(action: {
+                    AdsManager.shared.showRewardAd {
+                        SaveData.shared.totalXP += result.xpEarned
+                        adBonusWatched = true
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Text("📺")
+                        Text("広告を見てXP +\(result.xpEarned) ボーナス")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color(red: 1, green: 0.5, blue: 0).opacity(0.85))
+                    .cornerRadius(14)
+                    .shadow(color: Color(red: 1, green: 0.5, blue: 0).opacity(0.35), radius: 8)
+                }
+                .buttonStyle(ScaleButtonStyle())
+            }
+        }
     }
 
     // MARK: - Buttons

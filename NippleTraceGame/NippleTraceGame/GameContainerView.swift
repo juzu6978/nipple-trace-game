@@ -49,6 +49,7 @@ struct GameContainerView: View {
     @State private var popupText: String = ""
     @State private var popupColor: Color = .white
     @State private var popupVisible = false
+    @State private var isPaused = false
 
     init(config: DifficultyConfig, isDaily: Bool,
          onComplete: @escaping (GameResult) -> Void,
@@ -61,41 +62,49 @@ struct GameContainerView: View {
     }
 
     var body: some View {
-        ZStack {
-            // SpriteKit scene
-            SpriteView(scene: coordinator.scene)
-                .ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                // SpriteKit scene (full screen)
+                SpriteView(scene: coordinator.scene)
+                    .ignoresSafeArea()
 
-            // HUD
-            VStack(spacing: 0) {
-                hudTop
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                Spacer()
-                hudBottom
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 30)
-            }
+                // HUD — respects safe area via GeometryReader insets
+                VStack(spacing: 0) {
+                    hudTop
+                        .padding(.horizontal, 20)
+                        .padding(.top, geo.safeAreaInsets.top + 12)
+                    Spacer()
+                    hudBottom
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, max(geo.safeAreaInsets.bottom, 20) + 10)
+                }
 
-            // Event popup
-            if popupVisible {
-                Text(popupText)
-                    .font(.system(size: 26, weight: .black, design: .rounded))
-                    .foregroundColor(popupColor)
-                    .shadow(color: popupColor.opacity(0.8), radius: 10)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 8)
-                    .background(Color.black.opacity(0.38))
-                    .cornerRadius(20)
-                    .offset(y: -90)
-                    .transition(.opacity.combined(with: .scale))
-            }
+                // Event popup
+                if popupVisible {
+                    Text(popupText)
+                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .foregroundColor(popupColor)
+                        .shadow(color: popupColor.opacity(0.8), radius: 10)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(0.38))
+                        .cornerRadius(20)
+                        .offset(y: -90)
+                        .transition(.opacity.combined(with: .scale))
+                }
 
-            // Countdown overlay
-            if countdownActive {
-                countdownOverlay
+                // Countdown overlay
+                if countdownActive {
+                    countdownOverlay
+                }
+
+                // Pause overlay
+                if isPaused {
+                    pauseOverlay(safeTop: geo.safeAreaInsets.top)
+                }
             }
         }
+        .ignoresSafeArea()
         .onAppear(perform: setup)
         .onDisappear {
             GameSceneEvents.shared.onEvent = nil
@@ -119,6 +128,18 @@ struct GameContainerView: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white.opacity(0.35))
                     .tracking(2)
+            }
+
+            Spacer()
+
+            // Pause button (center-top)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.18)) { isPaused = true }
+                coordinator.scene.pauseGame()
+            }) {
+                Image(systemName: "pause.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.white.opacity(0.55))
             }
 
             Spacer()
@@ -167,29 +188,60 @@ struct GameContainerView: View {
                     .foregroundColor(.white.opacity(0.25))
             }
 
-            // Ad button
-            if coordinator.hudState.showAdButton {
-                Button(action: requestAd) {
-                    HStack(spacing: 6) {
-                        Text("📺")
-                        Text("+5秒 広告を見て続ける")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Color(red: 1, green: 0.5, blue: 0).opacity(0.85))
-                    .cornerRadius(24)
-                    .shadow(color: Color(red: 1, green: 0.5, blue: 0).opacity(0.4), radius: 8)
-                }
-                .buttonStyle(ScaleButtonStyle())
-                .transition(.scale.combined(with: .opacity))
-            }
-
             // Difficulty chip
             Text(config.emoji + " " + config.label + (isDaily ? "  ⚡DAILY" : ""))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(config.swiftUIColor.opacity(0.65))
+        }
+    }
+
+    // MARK: - Pause Overlay
+
+    private func pauseOverlay(safeTop: CGFloat) -> some View {
+        ZStack {
+            Color.black.opacity(0.68).ignoresSafeArea()
+
+            VStack(spacing: 28) {
+                Text("⏸ 一時停止")
+                    .font(.system(size: 22, weight: .black, design: .rounded))
+                    .foregroundColor(.white)
+
+                Button(action: {
+                    coordinator.scene.resumeGame()
+                    withAnimation(.easeInOut(duration: 0.18)) { isPaused = false }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                        Text("再開")
+                    }
+                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .foregroundColor(.black)
+                    .frame(width: 200, height: 54)
+                    .background(LinearGradient(
+                        colors: [Color(red: 0.41, green: 0.94, blue: 0.68),
+                                 Color(red: 0, green: 0.85, blue: 0.9)],
+                        startPoint: .leading, endPoint: .trailing
+                    ))
+                    .cornerRadius(14)
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                Button(action: {
+                    coordinator.scene.cancelGame()
+                    onMenu()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "house.fill")
+                        Text("ホームへ戻る")
+                    }
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white.opacity(0.8))
+                    .frame(width: 200, height: 48)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(14)
+                }
+                .buttonStyle(ScaleButtonStyle())
+            }
         }
     }
 
@@ -259,10 +311,6 @@ struct GameContainerView: View {
                 }
             }
         }
-    }
-
-    private func requestAd() {
-        coordinator.onRequestAd?()
     }
 
     private func showEventPopup(for event: GameEvent) {
