@@ -10,12 +10,21 @@
 		AA0001000000000000000011 /* NippleTraceGameApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000001 /* NippleTraceGameApp.swift */; };
 		AA0001000000000000000012 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000002 /* ContentView.swift */; };
 		AA0001000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000003 /* Assets.xcassets */; };
-		AA0001000000000000000014 /* nipple_trace_game.html in Resources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000004 /* nipple_trace_game.html */; };
 		AA0001000000000000000015 /* HapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000005 /* HapticsManager.swift */; };
 		AA0001000000000000000016 /* GameCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000006 /* GameCenterManager.swift */; };
 		AA0001000000000000000017 /* AdsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000007 /* AdsManager.swift */; };
 		AA0001000000000000000018 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000008 /* NotificationManager.swift */; };
 		AA0001000000000000000019 /* GameKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0001000000000000000009 /* GameKit.framework */; };
+		AA00010000000000000000B1 /* SaveData.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A1 /* SaveData.swift */; };
+		AA00010000000000000000B2 /* GameConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A2 /* GameConfig.swift */; };
+		AA00010000000000000000B3 /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A3 /* SoundManager.swift */; };
+		AA00010000000000000000B4 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A4 /* GameScene.swift */; };
+		AA00010000000000000000B5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A5 /* HomeView.swift */; };
+		AA00010000000000000000B6 /* DifficultyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A6 /* DifficultyView.swift */; };
+		AA00010000000000000000B7 /* GameContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A7 /* GameContainerView.swift */; };
+		AA00010000000000000000B8 /* ResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A8 /* ResultView.swift */; };
+		AA00010000000000000000B9 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000A9 /* AchievementsView.swift */; };
+		AA00010000000000000000D1 /* SpriteKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA00010000000000000000C1 /* SpriteKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,12 +32,21 @@
 		AA0001000000000000000001 /* NippleTraceGameApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NippleTraceGameApp.swift; sourceTree = "<group>"; };
 		AA0001000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA0001000000000000000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		AA0001000000000000000004 /* nipple_trace_game.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = nipple_trace_game.html; sourceTree = "<group>"; };
 		AA0001000000000000000005 /* HapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsManager.swift; sourceTree = "<group>"; };
 		AA0001000000000000000006 /* GameCenterManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterManager.swift; sourceTree = "<group>"; };
 		AA0001000000000000000007 /* AdsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsManager.swift; sourceTree = "<group>"; };
 		AA0001000000000000000008 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		AA0001000000000000000009 /* GameKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameKit.framework; path = System/Library/Frameworks/GameKit.framework; sourceTree = SDKROOT; };
+		AA00010000000000000000A1 /* SaveData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveData.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A2 /* GameConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameConfig.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A3 /* SoundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundManager.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A4 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A5 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A6 /* DifficultyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifficultyView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A7 /* GameContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameContainerView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A8 /* ResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000A9 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
+		AA00010000000000000000C1 /* SpriteKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SpriteKit.framework; path = System/Library/Frameworks/SpriteKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,6 +55,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0001000000000000000019 /* GameKit.framework in Frameworks */,
+				AA00010000000000000000D1 /* SpriteKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,7 +79,15 @@
 				AA0001000000000000000006 /* GameCenterManager.swift */,
 				AA0001000000000000000007 /* AdsManager.swift */,
 				AA0001000000000000000008 /* NotificationManager.swift */,
-				AA0001000000000000000004 /* nipple_trace_game.html */,
+				AA00010000000000000000A1 /* SaveData.swift */,
+				AA00010000000000000000A2 /* GameConfig.swift */,
+				AA00010000000000000000A3 /* SoundManager.swift */,
+				AA00010000000000000000A4 /* GameScene.swift */,
+				AA00010000000000000000A5 /* HomeView.swift */,
+				AA00010000000000000000A6 /* DifficultyView.swift */,
+				AA00010000000000000000A7 /* GameContainerView.swift */,
+				AA00010000000000000000A8 /* ResultView.swift */,
+				AA00010000000000000000A9 /* AchievementsView.swift */,
 				AA0001000000000000000003 /* Assets.xcassets */,
 			);
 			path = NippleTraceGame;
@@ -70,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0001000000000000000009 /* GameKit.framework */,
+				AA00010000000000000000C1 /* SpriteKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -142,7 +170,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA0001000000000000000013 /* Assets.xcassets in Resources */,
-				AA0001000000000000000014 /* nipple_trace_game.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -159,6 +186,15 @@
 				AA0001000000000000000016 /* GameCenterManager.swift in Sources */,
 				AA0001000000000000000017 /* AdsManager.swift in Sources */,
 				AA0001000000000000000018 /* NotificationManager.swift in Sources */,
+				AA00010000000000000000B1 /* SaveData.swift in Sources */,
+				AA00010000000000000000B2 /* GameConfig.swift in Sources */,
+				AA00010000000000000000B3 /* SoundManager.swift in Sources */,
+				AA00010000000000000000B4 /* GameScene.swift in Sources */,
+				AA00010000000000000000B5 /* HomeView.swift in Sources */,
+				AA00010000000000000000B6 /* DifficultyView.swift in Sources */,
+				AA00010000000000000000B7 /* GameContainerView.swift in Sources */,
+				AA00010000000000000000B8 /* ResultView.swift in Sources */,
+				AA00010000000000000000B9 /* AchievementsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
