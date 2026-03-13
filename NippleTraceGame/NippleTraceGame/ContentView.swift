@@ -85,7 +85,14 @@ struct ContentView: View {
                 )
             }
         }
-        .onAppear(perform: setupManagers)
+        // 起動時の黒画面防止: 全画面に背景色を敷く
+        .background(Color(red: 0.06, green: 0.05, blue: 0.16).ignoresSafeArea())
+        .onAppear {
+            // 初期フレームを描画させてから管理系を初期化（黒画面回避）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                setupManagers()
+            }
+        }
     }
 
     // MARK: - Navigation Helpers

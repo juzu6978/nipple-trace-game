@@ -7,7 +7,13 @@ class SoundManager {
     private var players: [AVAudioPlayerNode] = []
     private var isSetup = false
 
-    private init() { setup() }
+    private init() {
+        // AVAudioSession.setActive() はメインスレッドをブロックするため
+        // バックグラウンドで初期化して起動時の黒画面を防ぐ
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.setup()
+        }
+    }
 
     private func setup() {
         do {

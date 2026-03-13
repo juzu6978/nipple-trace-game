@@ -54,6 +54,7 @@ final class GameScene: SKScene {
     private var nippleOffset   = CGPoint.zero  // EXTREME wobble
     private var lastTimerPct: CGFloat = -1     // タイマーリングの差分描画用
     private var wasFlashing    = false         // フラッシュ状態の変化検出用
+    private var cachedBonusTexture: SKTexture? // ボーナスキャラ描画を1回だけ実行してキャッシュ
 
     // ─── Nodes ───────────────────────────────────────────
     private var bgNode:         SKSpriteNode!
@@ -73,6 +74,8 @@ final class GameScene: SKScene {
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
         backgroundColor = UIColor(red: 0.06, green: 0.05, blue: 0.16, alpha: 1)
         buildNodes()
+        // ボーナスキャラのテクスチャを事前レンダリング（初回ラグ防止）
+        _ = bonusTexture()
     }
 
     private func buildNodes() {
@@ -235,6 +238,7 @@ final class GameScene: SKScene {
                 HapticsManager.shared.playPenalty()
                 GameSceneEvents.shared.send(.penalty(seconds: config.penalty))
                 resetCurrentLap()
+                notifyState()  // ペナルティ時刻を即座にHUD反映
             }
             return
         }
@@ -280,6 +284,7 @@ final class GameScene: SKScene {
                 flashColor = UIColor(red: 0, green: 0.9, blue: 0.42, alpha: 1)
                 flashAlpha = 0.7
                 lapLabelNode.text = "\(lapCount)"
+                notifyState()  // ラップ完了時に即座にHUD更新（6フレーム待たない）
             }
         }
         lastAngle = angle
@@ -363,13 +368,25 @@ final class GameScene: SKScene {
     private func startBonusChar() {
         bonusCharTimer = 130
         bonusCharNode?.removeFromParent()
-        bonusCharNode = makeBonusCharNode()
-        if let cn = bonusCharNode {
-            let xPos = min(130, (size.width / 2) - 50)
-            cn.position = CGPoint(x: xPos, y: 0)
-            cn.zPosition = 10
-            addChild(cn)
-        }
+        // キャッシュ済みテクスチャから即座にノード生成（重い描画処理なし）
+        let tex = bonusTexture()
+        let cn = SKSpriteNode(texture: tex, size: CGSize(width: 110, height: 160))
+        bonusCharNode = cn
+        let xPos = min(130, (size.width / 2) - 50)
+        cn.position = CGPoint(x: xPos, y: 0)
+        cn.zPosition = 10
+        addChild(cn)
+    }
+
+    /// ボーナスキャラのSKTextureを返す（初回のみ描画、以降はキャッシュを返す）
+    private func bonusTexture() -> SKTexture {
+        if let cached = cachedBonusTexture { return cached }
+        let imgSize = CGSize(width: 110, height: 160)
+        let renderer = UIGraphicsImageRenderer(size: imgSize)
+        let image = renderer.image { _ in drawKawaiiChar(in: imgSize) }
+        let texture = SKTexture(image: image)
+        cachedBonusTexture = texture
+        return texture
     }
 
     private func updateBonusChar() {
@@ -396,16 +413,6 @@ final class GameScene: SKScene {
             cn.removeFromParent()
             bonusCharNode = nil
         }
-    }
-
-    private func makeBonusCharNode() -> SKSpriteNode? {
-        let imgSize = CGSize(width: 110, height: 160)
-        let renderer = UIGraphicsImageRenderer(size: imgSize)
-        let image = renderer.image { _ in
-            drawKawaiiChar(in: imgSize)
-        }
-        let texture = SKTexture(image: image)
-        return SKSpriteNode(texture: texture, size: imgSize)
     }
 
     private func drawKawaiiChar(in size: CGSize) {

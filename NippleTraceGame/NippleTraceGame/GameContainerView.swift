@@ -353,7 +353,7 @@ struct GameContainerView: View {
             if countdown > 0 {
                 tickCountdown()
             } else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     withAnimation { countdownActive = false }
                     coordinator.scene.startGame(config: config, isDaily: isDaily)
                 }
