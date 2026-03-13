@@ -20,18 +20,6 @@ struct GameSceneState {
     var adUsed: Bool        = false
 }
 
-// MARK: - Particle
-
-private struct Particle {
-    var x, y: CGFloat
-    var vx, vy: CGFloat
-    var life: CGFloat
-    let decay: CGFloat
-    let baseSize: CGFloat
-    let color: UIColor
-    weak var node: SKShapeNode?
-}
-
 // MARK: - GameScene
 
 final class GameScene: SKScene {
@@ -61,7 +49,6 @@ final class GameScene: SKScene {
     private var animFrame      = 0
     private var flashAlpha: CGFloat = 0
     private var flashColor     = UIColor.white
-    private var particles: [Particle] = []
     private var bonusCharTimer = 0
     private var adUsed         = false
     private var lastUpdateTime: TimeInterval = 0
@@ -80,7 +67,6 @@ final class GameScene: SKScene {
     private var lapLabelNode:   SKLabelNode!
     private var trailNode:      SKShapeNode!
     private var cursorNode:     SKShapeNode!
-    private var particleRoot:   SKNode!
     private var bonusCharNode:  SKSpriteNode?
 
     // MARK: - Setup
@@ -164,10 +150,6 @@ final class GameScene: SKScene {
         cursorNode.isHidden = true
         addChild(cursorNode)
 
-        // Particle root
-        particleRoot = SKNode()
-        particleRoot.zPosition = 8
-        addChild(particleRoot)
     }
 
     // MARK: - Start / Reset
@@ -194,8 +176,6 @@ final class GameScene: SKScene {
         nippleOffset    = .zero
         lastTimerPct    = -1
         wasFlashing     = false
-        particles.removeAll()
-        particleRoot.removeAllChildren()
         bonusCharNode?.removeFromParent()
         bonusCharNode = nil
         trailNode.path = nil
@@ -313,7 +293,6 @@ final class GameScene: SKScene {
                 HapticsManager.shared.playLap()
                 flashColor = UIColor(red: 0, green: 0.9, blue: 0.42, alpha: 1)
                 flashAlpha = 0.7
-                spawnParticles(at: .zero, count: 6)
                 lapLabelNode.text = "\(lapCount)"
                 trailPoints = []
             }
@@ -360,9 +339,8 @@ final class GameScene: SKScene {
             nippleNode.position = nippleOffset
         }
 
-        // 毎フレーム必須の更新のみ（ニップルpulseは削除）
+        // 毎フレーム必須の更新のみ
         updateTrail()
-        updateParticles()
         updateBonusChar()
 
         // タイマーリングは変化があるときのみ（0.8%以上変化した場合）
@@ -419,50 +397,6 @@ final class GameScene: SKScene {
         }
     }
 
-    // MARK: - Particles
-
-    private func spawnParticles(at center: CGPoint, count: Int, big: Bool = false) {
-        for _ in 0..<count {
-            let angle  = CGFloat.random(in: 0..<2*CGFloat.pi)
-            let speed  = CGFloat.random(in: 2..<7) * (big ? 1.5 : 1.0)
-            let size   = CGFloat.random(in: 3..<(big ? 10 : 6))
-            let node   = SKShapeNode(circleOfRadius: size)
-            let hue    = CGFloat.random(in: 0..<1)
-            node.fillColor = UIColor(hue: hue, saturation: 1, brightness: 0.9, alpha: 1)
-            node.strokeColor = .clear
-            node.position = center
-            node.zPosition = 8
-            particleRoot.addChild(node)
-            particles.append(Particle(
-                x: center.x, y: center.y,
-                vx: cos(angle) * speed, vy: sin(angle) * speed,
-                life: 1.0,
-                decay: CGFloat.random(in: 0.02..<0.04),
-                baseSize: size,
-                color: node.fillColor,
-                node: node
-            ))
-        }
-    }
-
-    private func updateParticles() {
-        for i in (0..<particles.count).reversed() {
-            particles[i].x  += particles[i].vx
-            particles[i].y  += particles[i].vy
-            particles[i].vy -= 0.18  // gravity
-            particles[i].life -= particles[i].decay
-            if particles[i].life <= 0 {
-                particles[i].node?.removeFromParent()
-                particles.remove(at: i)
-            } else {
-                let p = particles[i]
-                p.node?.position = CGPoint(x: p.x, y: p.y)
-                p.node?.alpha    = p.life
-                p.node?.setScale(p.life)
-            }
-        }
-    }
-
     // MARK: - Bonus Character
 
     private func startBonusChar() {
@@ -475,7 +409,6 @@ final class GameScene: SKScene {
             cn.zPosition = 10
             addChild(cn)
         }
-        spawnParticles(at: .zero, count: 10, big: true)
     }
 
     private func updateBonusChar() {
@@ -608,7 +541,6 @@ final class GameScene: SKScene {
     private func endGame() {
         guard gameActive else { return }
         gameActive = false
-        spawnParticles(at: .zero, count: 15, big: true)
         SoundManager.shared.playGameOver()
 
         let save = SaveData.shared
