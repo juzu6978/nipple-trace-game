@@ -62,45 +62,50 @@ struct GameContainerView: View {
     }
 
     var body: some View {
+        // GeometryReader + ignoresSafeArea() → geo.safeAreaInsets が実機の
+        // Dynamic Island / ノッチ高さを正確に返す
         GeometryReader { geo in
+            let topPad    = geo.safeAreaInsets.top + 20   // Safe area + 余白
+            let bottomPad = max(geo.safeAreaInsets.bottom, 16) + 8
+
             ZStack {
-                // SpriteKit scene (full screen)
+                // SpriteKit scene (full screen behind notch)
                 SpriteView(scene: coordinator.scene)
                     .ignoresSafeArea()
 
-                // HUD — respects safe area via GeometryReader insets
+                // HUD オーバーレイ
                 VStack(spacing: 0) {
                     hudTop
-                        .padding(.horizontal, 20)
-                        .padding(.top, geo.safeAreaInsets.top + 12)
+                        .padding(.horizontal, 16)
+                        .padding(.top, topPad)
                     Spacer()
                     hudBottom
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, max(geo.safeAreaInsets.bottom, 20) + 10)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, bottomPad)
                 }
 
-                // Event popup
+                // イベントポップアップ（画面中央より少し上）
                 if popupVisible {
                     Text(popupText)
-                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .font(.system(size: 22, weight: .black, design: .rounded))
                         .foregroundColor(popupColor)
-                        .shadow(color: popupColor.opacity(0.8), radius: 10)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 8)
-                        .background(Color.black.opacity(0.38))
-                        .cornerRadius(20)
-                        .offset(y: -90)
+                        .shadow(color: popupColor.opacity(0.8), radius: 8)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(Color.black.opacity(0.35))
+                        .cornerRadius(18)
+                        .offset(y: geo.size.height * 0.1)
                         .transition(.opacity.combined(with: .scale))
                 }
 
-                // Countdown overlay
+                // カウントダウン
                 if countdownActive {
                     countdownOverlay
                 }
 
-                // Pause overlay
+                // 一時停止
                 if isPaused {
-                    pauseOverlay(safeTop: geo.safeAreaInsets.top)
+                    pauseOverlay
                 }
             }
         }
@@ -112,55 +117,62 @@ struct GameContainerView: View {
     }
 
     // MARK: - HUD Top
+    // タイムとスコアを横並びのカプセル型バーに収め、Dynamic Island の下に表示
 
     private var hudTop: some View {
-        HStack(alignment: .top) {
-            // Timer
-            VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 0) {
+
+            // ── タイム ──────────────────────────────────
+            VStack(spacing: 0) {
                 Text(String(format: "%.1f", max(0, coordinator.hudState.timeLeft)))
-                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .font(.system(size: 36, weight: .black, design: .rounded))
                     .foregroundColor(
                         coordinator.hudState.timerDanger
-                            ? Color(red: 1, green: 0.3, blue: 0.3)
+                            ? Color(red: 1, green: 0.35, blue: 0.35)
                             : .white
                     )
+                    .monospacedDigit()
                 Text("TIME")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white.opacity(0.35))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.4))
                     .tracking(2)
             }
+            .frame(maxWidth: .infinity)
 
-            Spacer()
-
-            // Pause button (center-top)
+            // ── ポーズボタン（中央） ──────────────────────
             Button(action: {
-                withAnimation(.easeInOut(duration: 0.18)) { isPaused = true }
                 coordinator.scene.pauseGame()
+                withAnimation(.easeInOut(duration: 0.18)) { isPaused = true }
             }) {
                 Image(systemName: "pause.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.white.opacity(0.55))
+                    .font(.system(size: 28))
+                    .foregroundColor(.white.opacity(0.45))
             }
+            .frame(width: 52)
 
-            Spacer()
-
-            // Score
-            VStack(alignment: .trailing, spacing: 1) {
+            // ── スコア ──────────────────────────────────
+            VStack(spacing: 0) {
                 Text("\(coordinator.hudState.score)")
-                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .font(.system(size: 36, weight: .black, design: .rounded))
                     .foregroundColor(Color(red: 0.41, green: 0.94, blue: 0.68))
+                    .monospacedDigit()
                 Text("SCORE")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white.opacity(0.35))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.4))
                     .tracking(2)
-                let best = SaveData.shared.bestScores[config.id] ?? 0
-                if best > 0 {
-                    Text("BEST \(best)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.28))
-                }
             }
+            .frame(maxWidth: .infinity)
         }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.42))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - HUD Bottom
@@ -197,7 +209,7 @@ struct GameContainerView: View {
 
     // MARK: - Pause Overlay
 
-    private func pauseOverlay(safeTop: CGFloat) -> some View {
+    private var pauseOverlay: some View {
         ZStack {
             Color.black.opacity(0.68).ignoresSafeArea()
 

@@ -67,6 +67,7 @@ struct ContentView: View {
                     onMenu: { transition(to: .home) }
                 )
                 .id(gameID)
+                .ignoresSafeArea()  // フルスクリーン — HUD位置はGeometryReaderで制御
 
             case .result:
                 if let result = gameResult {

@@ -361,11 +361,20 @@ final class GameScene: SKScene {
         let s = (NIPPLE_R + pulse) / NIPPLE_R
         nippleNode.setScale(s)
 
-        updateTimerRing()
+        // 毎フレーム必須の更新のみ
         updateTrail()
         updateParticles()
         updateBonusChar()
-        notifyState()
+
+        // タイマーリングは2フレームに1回（視覚的に差は出ない）
+        if animFrame % 2 == 0 {
+            updateTimerRing()
+        }
+
+        // SwiftUI HUD 更新は4フレームに1回（60fps→15Hz、十分滑らか）
+        if animFrame % 4 == 0 {
+            notifyState()
+        }
 
         if timeLeft <= 0 {
             endGame()
