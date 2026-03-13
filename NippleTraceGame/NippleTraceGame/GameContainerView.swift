@@ -1,6 +1,31 @@
 import SwiftUI
 import SpriteKit
 
+// MARK: - SKGameView（パフォーマンス最適化済みのSpriteKitラッパー）
+// SpriteView の代わりにこちらを使う
+// - preferredFramesPerSecond = 30（60fpsは不要、CPU/GPU負荷を半分に）
+// - ignoresSiblingOrder = true（SpriteKitのZOrder最適化、描画コスト削減）
+// - updateUIView が空なので SwiftUI 再レンダリング時に SKView を再生成しない
+
+struct SKGameView: UIViewRepresentable {
+    let scene: SKScene
+
+    func makeUIView(context: Context) -> SKView {
+        let view = SKView()
+        view.preferredFramesPerSecond = 30
+        view.ignoresSiblingOrder = true
+        view.showsFPS = false
+        view.showsNodeCount = false
+        view.showsDrawCount = false
+        view.presentScene(scene)
+        return view
+    }
+
+    func updateUIView(_ uiView: SKView, context: Context) {
+        // 意図的に空 — SwiftUI が再評価しても SKView を触らせない
+    }
+}
+
 // MARK: - GameCoordinator
 
 final class GameCoordinator: NSObject, ObservableObject, GameSceneDelegate {
@@ -66,8 +91,8 @@ struct GameContainerView: View {
 
     var body: some View {
         ZStack {
-            // SpriteKit scene（フルスクリーン）
-            SpriteView(scene: coordinator.scene)
+            // SpriteKit scene（フルスクリーン・30fps最適化済み）
+            SKGameView(scene: coordinator.scene)
                 .ignoresSafeArea()
 
             // HUD オーバーレイ

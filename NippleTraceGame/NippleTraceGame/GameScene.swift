@@ -45,7 +45,6 @@ final class GameScene: SKScene {
     private var penaltyCount   = 0
     private var penaltyCooldown = 0
     private var touching       = false
-    private var trailPoints: [CGPoint] = []
     private var animFrame      = 0
     private var flashAlpha: CGFloat = 0
     private var flashColor     = UIColor.white
@@ -65,7 +64,6 @@ final class GameScene: SKScene {
     private var nippleNode:     SKShapeNode!
     private var ngZoneNode:     SKShapeNode!
     private var lapLabelNode:   SKLabelNode!
-    private var trailNode:      SKShapeNode!
     private var cursorNode:     SKShapeNode!
     private var bonusCharNode:  SKSpriteNode?
 
@@ -132,16 +130,6 @@ final class GameScene: SKScene {
         lapLabelNode.zPosition = 3
         addChild(lapLabelNode)
 
-        // Trail
-        trailNode = SKShapeNode()
-        trailNode.strokeColor = UIColor(red: 0.47, green: 0.78, blue: 1, alpha: 0.75)
-        trailNode.lineWidth = 4
-        trailNode.lineCap = .round
-        trailNode.lineJoin = .round
-        trailNode.fillColor = .clear
-        trailNode.zPosition = 6
-        addChild(trailNode)
-
         // Cursor dot
         cursorNode = SKShapeNode(circleOfRadius: 9)
         cursorNode.fillColor = UIColor(red: 0.47, green: 0.78, blue: 1, alpha: 0.9)
@@ -164,7 +152,6 @@ final class GameScene: SKScene {
         lapAngleAccum   = 0
         lastAngle       = nil
         touching        = false
-        trailPoints     = []
         animFrame       = 0
         flashAlpha      = 0
         consecutiveLaps = 0
@@ -178,7 +165,6 @@ final class GameScene: SKScene {
         wasFlashing     = false
         bonusCharNode?.removeFromParent()
         bonusCharNode = nil
-        trailNode.path = nil
         cursorNode.isHidden = true
         lapLabelNode.text = "0"
 
@@ -253,9 +239,9 @@ final class GameScene: SKScene {
             return
         }
 
-        // Limit trail length for performance
-        trailPoints.append(pos)
-        if trailPoints.count > 20 { trailPoints.removeFirst() }
+        // カーソル位置を直接更新（トレイルは削除済み）
+        cursorNode.position = pos
+        cursorNode.isHidden = false
 
         // Angle tracking
         let angle = atan2(Double(dy), Double(dx))
@@ -294,21 +280,15 @@ final class GameScene: SKScene {
                 flashColor = UIColor(red: 0, green: 0.9, blue: 0.42, alpha: 1)
                 flashAlpha = 0.7
                 lapLabelNode.text = "\(lapCount)"
-                trailPoints = []
             }
         }
         lastAngle = angle
-
-        notifyState()
     }
 
     private func resetCurrentLap() {
-        lapAngleAccum = 0   // Always reset to 0, direction-independent
-        lastAngle  = nil
-        trailPoints = []
-        trailNode.path = nil
+        lapAngleAccum = 0
+        lastAngle     = nil
         cursorNode.isHidden = true
-        notifyState()
     }
 
     // MARK: - Update Loop
@@ -340,7 +320,6 @@ final class GameScene: SKScene {
         }
 
         // 毎フレーム必須の更新のみ
-        updateTrail()
         updateBonusChar()
 
         // タイマーリングは変化があるときのみ（0.8%以上変化した場合）
@@ -377,24 +356,6 @@ final class GameScene: SKScene {
         let pct = timeLeft / config.time
         let hue: CGFloat = pct > 0.3 ? 140/360 : pct > 0.15 ? 40/360 : 0
         timerRingFill.strokeColor = UIColor(hue: hue, saturation: 1, brightness: 0.85, alpha: 1)
-    }
-
-    // MARK: - Trail
-
-    private func updateTrail() {
-        guard trailPoints.count >= 2, touching else {
-            if !touching { cursorNode.isHidden = true }
-            return
-        }
-        let path = CGMutablePath()
-        path.move(to: trailPoints[0])
-        for pt in trailPoints.dropFirst() { path.addLine(to: pt) }
-        trailNode.path = path
-
-        if let last = trailPoints.last {
-            cursorNode.position = last
-            cursorNode.isHidden = false
-        }
     }
 
     // MARK: - Bonus Character
