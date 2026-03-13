@@ -66,6 +66,8 @@ final class GameScene: SKScene {
     private var adUsed         = false
     private var lastUpdateTime: TimeInterval = 0
     private var nippleOffset   = CGPoint.zero  // EXTREME wobble
+    private var lastTimerPct: CGFloat = -1     // タイマーリングの差分描画用
+    private var wasFlashing    = false         // フラッシュ状態の変化検出用
 
     // ─── Nodes ───────────────────────────────────────────
     private var bgNode:         SKSpriteNode!
@@ -190,6 +192,8 @@ final class GameScene: SKScene {
         bonusCharTimer  = 0
         adUsed          = false
         nippleOffset    = .zero
+        lastTimerPct    = -1
+        wasFlashing     = false
         particles.removeAll()
         particleRoot.removeAllChildren()
         bonusCharNode?.removeFromParent()
@@ -339,40 +343,33 @@ final class GameScene: SKScene {
         if penaltyCooldown > 0 { penaltyCooldown -= 1 }
         timeLeft = max(0, timeLeft - dt)
 
-        // Flash fade
+        // フラッシュフェード（変化があるフレームのみノード更新）
         if flashAlpha > 0 {
-            flashAlpha = max(0, flashAlpha - 0.05)
-            flashNode.color = flashColor
-            flashNode.colorBlendFactor = 0
+            flashAlpha = max(0, flashAlpha - 0.06)
             flashNode.alpha = flashAlpha * 0.35
-        } else {
-            flashNode.alpha = 0
+            wasFlashing = true
+        } else if wasFlashing {
+            flashNode.alpha = 0   // 一度だけゼロにする
+            wasFlashing = false
         }
 
-        // EXTREME: nipple wobble
+        // EXTREME: nipple wobble（極端モードのみ）
         if config.id == "extreme" {
             let t = Double(animFrame)
             nippleOffset = CGPoint(x: CGFloat(sin(t * 0.07) * 3), y: CGFloat(cos(t * 0.05) * 3))
             nippleNode.position = nippleOffset
         }
 
-        // Nipple pulse
-        let pulse = CGFloat(sin(Double(animFrame) * 0.06) * 2)
-        let s = (NIPPLE_R + pulse) / NIPPLE_R
-        nippleNode.setScale(s)
-
-        // 毎フレーム必須の更新のみ
+        // 毎フレーム必須の更新のみ（ニップルpulseは削除）
         updateTrail()
         updateParticles()
         updateBonusChar()
 
-        // タイマーリングは2フレームに1回（視覚的に差は出ない）
-        if animFrame % 2 == 0 {
-            updateTimerRing()
-        }
+        // タイマーリングは変化があるときのみ（0.8%以上変化した場合）
+        updateTimerRing()
 
-        // SwiftUI HUD 更新は4フレームに1回（60fps→15Hz、十分滑らか）
-        if animFrame % 4 == 0 {
+        // SwiftUI HUD 更新は6フレームに1回（60fps→10Hz、タイマー表示に十分）
+        if animFrame % 6 == 0 {
             notifyState()
         }
 
@@ -384,7 +381,11 @@ final class GameScene: SKScene {
     // MARK: - Timer Ring
 
     private func updateTimerRing() {
-        let pct    = CGFloat(timeLeft / config.time)
+        let pct = CGFloat(timeLeft / config.time)
+        // 0.8%以上変化がないときはスキップ（毎フレームのCGPath生成を回避）
+        guard abs(pct - lastTimerPct) > 0.008 || lastTimerPct < 0 else { return }
+        lastTimerPct = pct
+
         let r      = AREOLA_R + 55
         let start  = CGFloat.pi / 2
         let end    = start - pct * 2 * CGFloat.pi

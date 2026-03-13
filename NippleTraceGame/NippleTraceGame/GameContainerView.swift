@@ -50,6 +50,9 @@ struct GameContainerView: View {
     @State private var popupColor: Color = .white
     @State private var popupVisible = false
     @State private var isPaused = false
+    /// UIKitウィンドウから直接取得した正確なsafe area（Dynamic Island/ノッチ対応）
+    @State private var topSafeArea: CGFloat = 50
+    @State private var bottomSafeArea: CGFloat = 0
 
     init(config: DifficultyConfig, isDaily: Bool,
          onComplete: @escaping (GameResult) -> Void,
@@ -62,30 +65,27 @@ struct GameContainerView: View {
     }
 
     var body: some View {
-        // GeometryReader + ignoresSafeArea() → geo.safeAreaInsets が実機の
-        // Dynamic Island / ノッチ高さを正確に返す
-        GeometryReader { geo in
-            let topPad    = geo.safeAreaInsets.top + 20   // Safe area + 余白
-            let bottomPad = max(geo.safeAreaInsets.bottom, 16) + 8
+        ZStack {
+            // SpriteKit scene（フルスクリーン）
+            SpriteView(scene: coordinator.scene)
+                .ignoresSafeArea()
 
-            ZStack {
-                // SpriteKit scene (full screen behind notch)
-                SpriteView(scene: coordinator.scene)
-                    .ignoresSafeArea()
+            // HUD オーバーレイ
+            // topSafeArea = UIKitウィンドウから取得した正確なDynamic Island/ノッチ高さ
+            VStack(spacing: 0) {
+                hudTop
+                    .padding(.horizontal, 16)
+                    .padding(.top, topSafeArea + 12)
+                Spacer()
+                hudBottom
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, max(bottomSafeArea, 16) + 8)
+            }
 
-                // HUD オーバーレイ
-                VStack(spacing: 0) {
-                    hudTop
-                        .padding(.horizontal, 16)
-                        .padding(.top, topPad)
+            // イベントポップアップ（画面中央より少し上）
+            if popupVisible {
+                VStack {
                     Spacer()
-                    hudBottom
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, bottomPad)
-                }
-
-                // イベントポップアップ（画面中央より少し上）
-                if popupVisible {
                     Text(popupText)
                         .font(.system(size: 22, weight: .black, design: .rounded))
                         .foregroundColor(popupColor)
@@ -94,19 +94,20 @@ struct GameContainerView: View {
                         .padding(.vertical, 7)
                         .background(Color.black.opacity(0.35))
                         .cornerRadius(18)
-                        .offset(y: geo.size.height * 0.1)
-                        .transition(.opacity.combined(with: .scale))
+                    Spacer()
+                    Spacer()
                 }
+                .transition(.opacity.combined(with: .scale))
+            }
 
-                // カウントダウン
-                if countdownActive {
-                    countdownOverlay
-                }
+            // カウントダウン
+            if countdownActive {
+                countdownOverlay
+            }
 
-                // 一時停止
-                if isPaused {
-                    pauseOverlay
-                }
+            // 一時停止
+            if isPaused {
+                pauseOverlay
             }
         }
         .ignoresSafeArea()
@@ -289,6 +290,16 @@ struct GameContainerView: View {
     // MARK: - Setup
 
     private func setup() {
+        // UIKitウィンドウからsafe area insetを直接取得
+        // geo.safeAreaInsets は ignoresSafeArea コンテキストでは0を返すため
+        if let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow }) {
+            topSafeArea    = window.safeAreaInsets.top
+            bottomSafeArea = window.safeAreaInsets.bottom
+        }
+
         coordinator.onGameEnd = { result in
             onComplete(result)
         }
